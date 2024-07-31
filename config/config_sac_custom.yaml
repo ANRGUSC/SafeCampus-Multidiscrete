@@ -1,0 +1,24 @@
+agent:
+  hidden_units: 256
+  learning_rate: 0.00001
+  discount_factor: 0.9
+  max_episodes: 100
+  exploration_rate: 1.0
+  min_exploration_rate: 0.01
+  exploration_decay_rate: 0.0001
+  batch_size: 128
+  learning_rate_decay: 0.9995
+  min_learning_rate: 0.0001
+  replay_memory_capacity: 100000
+  target_network_frequency: 1
+  target_update_interval: 1
+  temperature: 0.5
+  lambda: 0.95
+  epsilon: 1.0
+  tau: 0.005
+  alpha: 0.2
+  autotune: True
+  max_grad_norm: 0.5
+  policy_lr: 0.0003
+  q_lr: 0.0003
+

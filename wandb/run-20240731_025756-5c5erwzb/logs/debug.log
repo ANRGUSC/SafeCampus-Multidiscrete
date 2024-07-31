@@ -1,0 +1,31 @@
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_setup.py:_flush():76] Current SDK version is 0.16.6
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_setup.py:_flush():76] Configure stats pid to 668346
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_setup.py:_flush():76] Loading settings from /home/eondula/.config/wandb/settings
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_setup.py:_flush():76] Loading settings from /home/eondula/PhDWork/SafeCampus-Multidiscrete/wandb/settings
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'main.py', 'program_abspath': '/home/eondula/PhDWork/SafeCampus-Multidiscrete/main.py', 'program': '/home/eondula/PhDWork/SafeCampus-Multidiscrete/main.py'}
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_setup.py:_flush():76] Applying login settings: {}
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_init.py:_log_setup():521] Logging user logs to /home/eondula/PhDWork/SafeCampus-Multidiscrete/wandb/run-20240731_025756-5c5erwzb/logs/debug.log
+2024-07-31 02:57:56,683 INFO    MainThread:668346 [wandb_init.py:_log_setup():522] Logging internal logs to /home/eondula/PhDWork/SafeCampus-Multidiscrete/wandb/run-20240731_025756-5c5erwzb/logs/debug-internal.log
+2024-07-31 02:57:56,684 INFO    MainThread:668346 [wandb_init.py:init():561] calling init triggers
+2024-07-31 02:57:56,684 INFO    MainThread:668346 [wandb_init.py:init():568] wandb.init called with sweep_config: {}
+config: {}
+2024-07-31 02:57:56,684 INFO    MainThread:668346 [wandb_init.py:init():611] starting backend
+2024-07-31 02:57:56,684 INFO    MainThread:668346 [wandb_init.py:init():615] setting up manager
+2024-07-31 02:57:56,689 INFO    MainThread:668346 [backend.py:_multiprocessing_setup():105] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2024-07-31 02:57:56,693 INFO    MainThread:668346 [wandb_init.py:init():623] backend started and connected
+2024-07-31 02:57:56,701 INFO    MainThread:668346 [wandb_init.py:init():715] updated telemetry
+2024-07-31 02:57:56,702 INFO    MainThread:668346 [wandb_init.py:init():748] communicating run to backend with 90.0 second timeout
+2024-07-31 02:57:57,344 INFO    MainThread:668346 [wandb_run.py:_on_init():2357] communicating current version
+2024-07-31 02:57:57,506 INFO    MainThread:668346 [wandb_run.py:_on_init():2366] got version response upgrade_message: "wandb version 0.17.5 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2024-07-31 02:57:57,507 INFO    MainThread:668346 [wandb_init.py:init():799] starting run threads in backend
+2024-07-31 02:58:03,217 INFO    MainThread:668346 [wandb_run.py:_console_start():2335] atexit reg
+2024-07-31 02:58:04,195 INFO    MainThread:668346 [wandb_run.py:_redirect():2190] redirect: wrap_raw
+2024-07-31 02:58:04,196 INFO    MainThread:668346 [wandb_run.py:_redirect():2255] Wrapping output streams.
+2024-07-31 02:58:04,196 INFO    MainThread:668346 [wandb_run.py:_redirect():2280] Redirects installed.
+2024-07-31 02:58:04,197 INFO    MainThread:668346 [wandb_init.py:init():842] run started, returning control to user process
+2024-07-31 02:58:04,200 INFO    MainThread:668346 [wandb_run.py:_config_callback():1347] config_cb None None {'agent': {'learning_rate': 0.01, 'discount_factor': 0.1, 'max_episodes': 5000, 'exploration_rate': 1.0, 'min_exploration_rate': 1e-06, 'exploration_decay_rate': 1e-05, 'learning_rate_decay': 0.9999, 'min_learning_rate': 1e-05, 'checkpoint_interval': 100, 'e_decay_function': 11, 'logging_file': 'agent_log.txt'}}
+2024-07-31 02:58:04,201 INFO    MainThread:668346 [wandb_run.py:_config_callback():1347] config_cb None None {'alpha': 0.3}
+2024-07-31 02:59:41,107 WARNING MsgRouterThr:668346 [router.py:message_loop():77] message_loop has been closed

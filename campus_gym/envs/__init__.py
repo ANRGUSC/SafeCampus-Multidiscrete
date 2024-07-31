@@ -1,0 +1,1 @@
+from campus_gym.envs.campus_gym_env import CampusGymEnv # points to the location where the class that inherits from gym.Env can be found

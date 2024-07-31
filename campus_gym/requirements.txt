@@ -1,0 +1,4 @@
+gymnasium==0.29.1
+numpy==1.25.1
+pygame==2.5.2
+setuptools==59.6.0

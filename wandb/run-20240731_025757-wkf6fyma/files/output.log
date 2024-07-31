@@ -1,0 +1,19 @@
+  0%|                                                                                                                                        | 0/5000 [00:00<?, ?it/s]/home/eondula/.local/lib/python3.10/site-packages/gymnasium/utils/passive_env_checker.py:168: DeprecationWarning: [33mWARN: Current gymnasium version requires that `Env.reset` can be passed a `seed` instead of using `Env.seed` for resetting the environment random number generator.
+  logger.deprecation(
+/home/eondula/.local/lib/python3.10/site-packages/gymnasium/utils/passive_env_checker.py:181: DeprecationWarning: [33mWARN: Current gymnasium version requires that `Env.reset` can be passed `options` to allow the environment initialisation to be passed additional information.
+  logger.deprecation(
+
+
+
+
+
+
+
+
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5000/5000 [00:39<00:00, 128.19it/s]
+/home/eondula/.local/lib/python3.10/site-packages/gymnasium/core.py:311: UserWarning: [33mWARN: env.students_per_course to get variables from other wrappers is deprecated and will be removed in v1.0, to get this variable you can do `env.unwrapped.students_per_course` for environment variables or `env.get_wrapper_attr('students_per_course')` that will search the reminding wrappers.
+  logger.warn(
+Training complete.
+Q-table saved to policy/q_table_major-oath-34_0.1.npy
+Training log saved to results/q_learning/major-oath-34_0.1/20240731-025843/training_log_default-1.csv
+Done Training with alpha:  0.1 agent_type:  q_learning agent_name:  major-oath-34_0.1

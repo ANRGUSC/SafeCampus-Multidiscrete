@@ -1,0 +1,1112 @@
+Deep Q Agent Constructor Finish
+action: 2
+{'allowed': [2], 'infected': [44], 'reward': -21}
+action: 0
+{'allowed': [0], 'infected': [70], 'reward': -35}
+action: 0
+{'allowed': [0], 'infected': [43], 'reward': -21}
+action: 0
+{'allowed': [0], 'infected': [53], 'reward': -26}
+action: 2
+{'allowed': [2], 'infected': [44], 'reward': -21}
+action: 2
+{'allowed': [2], 'infected': [92], 'reward': -45}
+action: 0
+{'allowed': [0], 'infected': [33], 'reward': -16}
+action: 2
+{'allowed': [2], 'infected': [76], 'reward': -37}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+dstate: [0, 2]
+dstate: [6, 6]
+dstate: [8, 8]
+dstate: [3, 6]
+dstate: [4, 7]
+dstate: [1, 9]
+dstate: [0, 6]
+dstate: [3, 7]
+action: 2
+{'allowed': [2], 'infected': [29], 'reward': -13}
+action: 0
+{'allowed': [0], 'infected': [62], 'reward': -31}
+action: 0
+{'allowed': [0], 'infected': [82], 'reward': -41}
+action: 2
+{'allowed': [2], 'infected': [67], 'reward': -32}
+action: 2
+{'allowed': [2], 'infected': [72], 'reward': -35}
+action: 2
+{'allowed': [2], 'infected': [96], 'reward': -47}
+action: 2
+{'allowed': [2], 'infected': [61], 'reward': -29}
+action: 2
+{'allowed': [2], 'infected': [79], 'reward': -38}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+dstate: [2, 8]
+dstate: [9, 2]
+dstate: [0, 2]
+dstate: [8, 1]
+dstate: [6, 0]
+dstate: [3, 1]
+dstate: [6, 3]
+dstate: [7, 5]
+action: 2
+{'allowed': [2], 'infected': [89], 'reward': -43}
+action: 0
+{'allowed': [0], 'infected': [25], 'reward': -12}
+action: 2
+{'allowed': [2], 'infected': [26], 'reward': -12}
+action: 0
+{'allowed': [0], 'infected': [17], 'reward': -8}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [16], 'reward': -8}
+action: 0
+{'allowed': [0], 'infected': [37], 'reward': -18}
+action: 0
+{'allowed': [0], 'infected': [51], 'reward': -25}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+dstate: [7, 0]
+dstate: [4, 3]
+dstate: [0, 0]
+dstate: [6, 2]
+dstate: [5, 1]
+dstate: [6, 9]
+dstate: [7, 3]
+dstate: [9, 3]
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [38], 'reward': -19}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [26], 'reward': -13}
+action: 0
+{'allowed': [0], 'infected': [16], 'reward': -8}
+action: 2
+{'allowed': [2], 'infected': [92], 'reward': -45}
+action: 0
+{'allowed': [0], 'infected': [36], 'reward': -18}
+action: 0
+{'allowed': [0], 'infected': [35], 'reward': -17}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+dstate: [2, 6]
+dstate: [0, 7]
+dstate: [1, 0]
+dstate: [7, 0]
+dstate: [6, 9]
+dstate: [5, 5]
+dstate: [7, 7]
+dstate: [4, 0]
+action: 2
+{'allowed': [2], 'infected': [60], 'reward': -29}
+action: 2
+{'allowed': [2], 'infected': [74], 'reward': -36}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 2
+{'allowed': [2], 'infected': [95], 'reward': -46}
+action: 0
+{'allowed': [0], 'infected': [54], 'reward': -27}
+action: 0
+{'allowed': [0], 'infected': [74], 'reward': -37}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [5], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [3], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [9], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+dstate: [5, 3]
+action: 0
+{'allowed': [0], 'infected': [33], 'reward': -16}
+action: 2
+{'allowed': [2], 'infected': [2], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [4], 'reward': -2}
+action: 0
+{'allowed': [0], 'infected': [2], 'reward': -1}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [6], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [7], 'reward': -3}
+action: 0
+{'allowed': [0], 'infected': [8], 'reward': -4}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [0], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+action: 0
+{'allowed': [0], 'infected': [1], 'reward': 0}
+dstate: [8, 1]
+dstate: [0, 6]
+Traceback (most recent call last):
+  File "main.py", line 103, in <module>
+    run_data, training_name = run_training(alpha)
+  File "main.py", line 95, in run_training
+    training_data = agent.train(alpha)
+  File "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/agents/deepqlearning.py", line 137, in train
+    result = offpolicy_trainer(
+  File "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/venv/lib/python3.8/site-packages/tianshou/trainer/offpolicy.py", line 133, in offpolicy_trainer
+    return OffpolicyTrainer(*args, **kwargs).run()
+  File "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/venv/lib/python3.8/site-packages/tianshou/trainer/base.py", line 441, in run
+    deque(self, maxlen=0)  # feed the entire iterator into a zero-length deque
+  File "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/venv/lib/python3.8/site-packages/tianshou/trainer/base.py", line 252, in __iter__
+    self.reset()
+  File "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/venv/lib/python3.8/site-packages/tianshou/trainer/base.py", line 237, in reset
+    test_result = test_episode(
+  File "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/venv/lib/python3.8/site-packages/tianshou/trainer/utils.py", line 32, in test_episode
+    logger.log_test_data(result, global_step)
+  File "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/venv/lib/python3.8/site-packages/tianshou/utils/logger/base.py", line 77, in log_test_data
+    self.write("test/env_step", step, log_data)
+  File "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/venv/lib/python3.8/site-packages/tianshou/utils/logger/wandb.py", line 88, in write
+    raise Exception(
+Exception: `logger` needs to load the Tensorboard Writer before writing data. Try `logger.load(SummaryWriter(log_path))`

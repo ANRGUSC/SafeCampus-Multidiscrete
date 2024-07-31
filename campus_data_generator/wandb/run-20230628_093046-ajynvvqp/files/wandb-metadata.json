@@ -1,0 +1,21 @@
+{
+    "os": "macOS-10.16-x86_64-i386-64bit",
+    "python": "3.8.5",
+    "heartbeatAt": "2023-06-28T16:30:48.561090",
+    "startedAt": "2023-06-28T16:30:46.075362",
+    "docker": null,
+    "cpu_count": 8,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "main.py",
+    "git": {
+        "remote": "git@github.com:ANRGUSC/SafeCampus-RL.git",
+        "commit": "20bb24070d92cba6240fcefe92416f8174c26a66"
+    },
+    "email": null,
+    "root": "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL",
+    "host": "AndrewZs-MacBook-Air.local",
+    "username": "zuoning",
+    "executable": "/Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/venv/bin/python"
+}

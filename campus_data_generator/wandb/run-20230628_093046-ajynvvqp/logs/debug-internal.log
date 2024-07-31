@@ -1,0 +1,160 @@
+2023-06-28 09:30:47,956 INFO    MainThread:28909 [internal.py:wandb_internal():90] W&B internal server running at pid: 28909, started at: 2023-06-28 09:30:47.955830
+2023-06-28 09:30:47,958 INFO    WriterThread:28909 [datastore.py:open_for_write():75] open: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/run-ajynvvqp.wandb
+2023-06-28 09:30:47,961 DEBUG   SenderThread:28909 [sender.py:send():236] send: header
+2023-06-28 09:30:47,961 DEBUG   SenderThread:28909 [sender.py:send():236] send: run
+2023-06-28 09:30:47,964 INFO    SenderThread:28909 [sender.py:_maybe_setup_resume():493] checking resume status for None/safecampus/ajynvvqp
+2023-06-28 09:30:48,428 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: check_version
+2023-06-28 09:30:48,440 INFO    SenderThread:28909 [dir_watcher.py:__init__():216] watching files in: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files
+2023-06-28 09:30:48,440 INFO    SenderThread:28909 [sender.py:_start_run_threads():815] run started: ajynvvqp with start time 1687969846
+2023-06-28 09:30:48,441 DEBUG   SenderThread:28909 [sender.py:send():236] send: summary
+2023-06-28 09:30:48,441 INFO    SenderThread:28909 [sender.py:_save_file():952] saving file wandb-summary.json with policy end
+2023-06-28 09:30:48,442 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: check_version
+2023-06-28 09:30:48,554 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: run_start
+2023-06-28 09:30:48,559 DEBUG   HandlerThread:28909 [meta.py:__init__():35] meta init
+2023-06-28 09:30:48,559 DEBUG   HandlerThread:28909 [meta.py:__init__():49] meta init done
+2023-06-28 09:30:48,560 DEBUG   HandlerThread:28909 [meta.py:probe():209] probe
+2023-06-28 09:30:48,573 DEBUG   HandlerThread:28909 [meta.py:_setup_git():199] setup git
+2023-06-28 09:30:48,622 DEBUG   HandlerThread:28909 [meta.py:_setup_git():206] setup git done
+2023-06-28 09:30:48,623 DEBUG   HandlerThread:28909 [meta.py:_save_pip():53] save pip
+2023-06-28 09:30:48,624 DEBUG   HandlerThread:28909 [meta.py:_save_pip():67] save pip done
+2023-06-28 09:30:48,624 DEBUG   HandlerThread:28909 [meta.py:probe():247] probe done
+2023-06-28 09:30:48,693 DEBUG   SenderThread:28909 [sender.py:send():236] send: files
+2023-06-28 09:30:48,693 INFO    SenderThread:28909 [sender.py:_save_file():952] saving file wandb-metadata.json with policy now
+2023-06-28 09:30:48,706 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: stop_status
+2023-06-28 09:30:48,749 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: stop_status
+2023-06-28 09:30:48,898 DEBUG   SenderThread:28909 [sender.py:send():236] send: telemetry
+2023-06-28 09:30:48,899 DEBUG   SenderThread:28909 [sender.py:send():236] send: telemetry
+2023-06-28 09:30:49,401 INFO    Thread-11 :28909 [upload_job.py:push():138] Uploaded file /var/folders/92/9_qx_b_91yq_g71_xzz48h100000gn/T/tmp7gg3zsgswandb/2irr0w52-wandb-metadata.json
+2023-06-28 09:30:49,448 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_created():269] file/dir created: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/requirements.txt
+2023-06-28 09:30:49,449 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_created():269] file/dir created: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/wandb-metadata.json
+2023-06-28 09:30:49,449 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_created():269] file/dir created: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:30:49,449 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_created():269] file/dir created: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/wandb-summary.json
+2023-06-28 09:30:51,449 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:30:53,451 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:30:55,459 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:30:57,466 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:30:59,474 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:01,488 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:03,494 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:03,947 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: stop_status
+2023-06-28 09:31:03,948 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: stop_status
+2023-06-28 09:31:05,499 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:07,501 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:09,509 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:11,514 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:13,523 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:15,531 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:16,929 DEBUG   SenderThread:28909 [sender.py:send():236] send: telemetry
+2023-06-28 09:31:17,537 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:17,558 DEBUG   SenderThread:28909 [sender.py:send():236] send: stats
+2023-06-28 09:31:19,158 DEBUG   SenderThread:28909 [sender.py:send():236] send: exit
+2023-06-28 09:31:19,159 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:19,159 INFO    SenderThread:28909 [sender.py:send_exit():372] handling exit code: 1
+2023-06-28 09:31:19,160 INFO    SenderThread:28909 [sender.py:send_exit():374] handling runtime: 30
+2023-06-28 09:31:19,161 INFO    SenderThread:28909 [sender.py:_save_file():952] saving file wandb-summary.json with policy end
+2023-06-28 09:31:19,161 INFO    SenderThread:28909 [sender.py:send_exit():380] send defer
+2023-06-28 09:31:19,161 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:19,162 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:19,162 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 0
+2023-06-28 09:31:19,163 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:19,163 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 0
+2023-06-28 09:31:19,163 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 1
+2023-06-28 09:31:19,164 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:19,164 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 1
+2023-06-28 09:31:19,219 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:19,220 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 1
+2023-06-28 09:31:19,220 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 2
+2023-06-28 09:31:19,220 DEBUG   SenderThread:28909 [sender.py:send():236] send: stats
+2023-06-28 09:31:19,221 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:19,221 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 2
+2023-06-28 09:31:19,221 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:19,221 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 2
+2023-06-28 09:31:19,221 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 3
+2023-06-28 09:31:19,222 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:19,222 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 3
+2023-06-28 09:31:19,222 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:19,222 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 3
+2023-06-28 09:31:19,222 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 4
+2023-06-28 09:31:19,223 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:19,223 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 4
+2023-06-28 09:31:19,223 DEBUG   SenderThread:28909 [sender.py:send():236] send: summary
+2023-06-28 09:31:19,224 INFO    SenderThread:28909 [sender.py:_save_file():952] saving file wandb-summary.json with policy end
+2023-06-28 09:31:19,224 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:19,224 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 4
+2023-06-28 09:31:19,224 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 5
+2023-06-28 09:31:19,225 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:19,225 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 5
+2023-06-28 09:31:19,225 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:19,225 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 5
+2023-06-28 09:31:19,225 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 6
+2023-06-28 09:31:19,225 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:19,225 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 6
+2023-06-28 09:31:19,226 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:19,226 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 6
+2023-06-28 09:31:19,226 INFO    SenderThread:28909 [dir_watcher.py:finish():353] shutting down directory watcher
+2023-06-28 09:31:19,265 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:19,544 INFO    Thread-7  :28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/config.yaml
+2023-06-28 09:31:19,545 INFO    SenderThread:28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/wandb-summary.json
+2023-06-28 09:31:19,546 INFO    SenderThread:28909 [dir_watcher.py:_on_file_modified():286] file/dir modified: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:19,546 INFO    SenderThread:28909 [dir_watcher.py:finish():383] scan: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files
+2023-06-28 09:31:19,547 INFO    SenderThread:28909 [dir_watcher.py:finish():397] scan save: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/requirements.txt requirements.txt
+2023-06-28 09:31:19,547 INFO    SenderThread:28909 [dir_watcher.py:finish():397] scan save: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log output.log
+2023-06-28 09:31:19,551 INFO    SenderThread:28909 [dir_watcher.py:finish():397] scan save: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/config.yaml config.yaml
+2023-06-28 09:31:19,552 INFO    SenderThread:28909 [dir_watcher.py:finish():397] scan save: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/wandb-summary.json wandb-summary.json
+2023-06-28 09:31:19,560 INFO    SenderThread:28909 [dir_watcher.py:finish():397] scan save: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/wandb-metadata.json wandb-metadata.json
+2023-06-28 09:31:19,561 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 7
+2023-06-28 09:31:19,562 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:19,569 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:19,570 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 7
+2023-06-28 09:31:19,572 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:19,572 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 7
+2023-06-28 09:31:19,573 INFO    SenderThread:28909 [file_pusher.py:finish():171] shutting down file pusher
+2023-06-28 09:31:19,671 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:19,671 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:19,773 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:19,774 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:19,881 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:19,882 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:19,987 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:19,987 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:20,057 INFO    Thread-15 :28909 [upload_job.py:push():138] Uploaded file /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/wandb-summary.json
+2023-06-28 09:31:20,091 INFO    Thread-12 :28909 [upload_job.py:push():138] Uploaded file /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/requirements.txt
+2023-06-28 09:31:20,093 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:20,094 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:20,118 INFO    Thread-13 :28909 [upload_job.py:push():138] Uploaded file /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/output.log
+2023-06-28 09:31:20,124 INFO    Thread-14 :28909 [upload_job.py:push():138] Uploaded file /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/files/config.yaml
+2023-06-28 09:31:20,200 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:20,201 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:20,306 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:20,307 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:20,325 INFO    Thread-6  :28909 [sender.py:transition_state():393] send defer: 8
+2023-06-28 09:31:20,326 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:20,326 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 8
+2023-06-28 09:31:20,326 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:20,326 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 8
+2023-06-28 09:31:20,411 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:22,315 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 9
+2023-06-28 09:31:22,315 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:22,316 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:22,316 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 9
+2023-06-28 09:31:22,317 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:22,317 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 9
+2023-06-28 09:31:22,317 INFO    SenderThread:28909 [sender.py:transition_state():393] send defer: 10
+2023-06-28 09:31:22,319 DEBUG   SenderThread:28909 [sender.py:send():236] send: final
+2023-06-28 09:31:22,319 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: defer
+2023-06-28 09:31:22,319 DEBUG   SenderThread:28909 [sender.py:send():236] send: footer
+2023-06-28 09:31:22,320 INFO    HandlerThread:28909 [handler.py:handle_request_defer():163] handle defer: 10
+2023-06-28 09:31:22,320 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: defer
+2023-06-28 09:31:22,320 INFO    SenderThread:28909 [sender.py:send_request_defer():389] handle sender defer: 10
+2023-06-28 09:31:22,419 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: poll_exit
+2023-06-28 09:31:22,420 DEBUG   SenderThread:28909 [sender.py:send_request():250] send_request: poll_exit
+2023-06-28 09:31:22,421 INFO    SenderThread:28909 [file_pusher.py:join():176] waiting for file pusher
+2023-06-28 09:31:22,819 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: sampled_history
+2023-06-28 09:31:22,822 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: get_summary
+2023-06-28 09:31:22,824 DEBUG   HandlerThread:28909 [handler.py:handle_request():140] handle_request: shutdown
+2023-06-28 09:31:22,824 INFO    HandlerThread:28909 [handler.py:finish():806] shutting down handler
+2023-06-28 09:31:23,319 INFO    WriterThread:28909 [datastore.py:close():279] close: /Users/zuoning/Desktop/Dev/ANRG/SafeCampus-RL/campus_data_generator/wandb/run-20230628_093046-ajynvvqp/run-ajynvvqp.wandb
+2023-06-28 09:31:23,716 INFO    SenderThread:28909 [sender.py:finish():1114] shutting down sender
+2023-06-28 09:31:23,717 INFO    SenderThread:28909 [file_pusher.py:finish():171] shutting down file pusher
+2023-06-28 09:31:23,717 INFO    SenderThread:28909 [file_pusher.py:join():176] waiting for file pusher
+2023-06-28 09:31:23,722 INFO    MainThread:28909 [internal.py:handle_exit():80] Internal process exited
