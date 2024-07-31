@@ -299,14 +299,31 @@ class DQNCustomAgent:
 
     def calculate_convergence_rate(self, episode_rewards):
         # Simple example: Convergence rate is the change in reward over the last few episodes
-        if len(episode_rewards) < 2:
+        if len(episode_rewards) < 10:
             return 0
         return np.mean(np.diff(episode_rewards[-10:]))  # Change in reward over the last 10 episodes
 
     def calculate_policy_entropy(self, q_values):
-        policy = np.exp(q_values) / np.sum(np.exp(q_values))
-        entropy = -np.sum(policy * np.log(policy))
-        return entropy
+        # Convert to PyTorch tensor if it's a NumPy array
+        if isinstance(q_values, np.ndarray):
+            q_values = torch.from_numpy(q_values).float()
+
+        # Ensure q_values is on the correct device
+        q_values = q_values.to(self.device)
+
+        # Ensure q_values is 2D
+        if q_values.dim() == 1:
+            q_values = q_values.unsqueeze(0)
+
+        # Apply softmax to get probabilities
+        policy = F.softmax(q_values, dim=-1)
+
+        # Calculate entropy
+        log_policy = torch.log(policy + 1e-10)  # Add small constant to avoid log(0)
+        entropy = -torch.sum(policy * log_policy, dim=-1)
+
+        # Return mean entropy as a Python float
+        return entropy.mean().item()
     def train(self, alpha):
         start_time = time.time()
         pbar = tqdm(total=self.max_episodes, desc="Training Progress", leave=True)
@@ -350,6 +367,7 @@ class DQNCustomAgent:
                 self.replay_memory.append((state, original_actions, reward, next_state, done))
                 # Calculate cumulative reward and discounted reward
                 total_reward += reward
+                episode_rewards.append(reward)
                 cumulative_reward = sum(episode_rewards)
                 discounted_reward = sum([r * (self.discount_factor ** i) for i, r in enumerate(episode_rewards)])
                 # Track policy changes
@@ -359,28 +377,6 @@ class DQNCustomAgent:
 
                 q_values = self.model(torch.FloatTensor(state).unsqueeze(0)).detach().numpy()
                 policy_entropy = self.calculate_policy_entropy(q_values)
-
-                # Log the experience to CSV
-                metrics = {
-                    'episode': episode,
-                    'step': step,
-                    'state': str(state),
-                    'action': str(original_actions),
-                    'reward': reward,
-                    'next_state': str(next_state),
-                    'terminated': done,
-                    'cumulative_reward': cumulative_reward,
-                    'average_reward': np.mean(episode_rewards) if episode_rewards else 0,
-                    'discounted_reward': discounted_reward,
-                    'convergence_rate': self.calculate_convergence_rate(episode_rewards),
-                    'sample_efficiency': len(episode_rewards),
-                    'policy_consistency': 1 - (policy_changes / len(episode_rewards)) if episode_rewards else 1,
-                    'policy_entropy': policy_entropy,
-                    'time_complexity': time.time() - start_time,
-                    'space_complexity': sum(p.numel() for p in self.model.parameters())
-                }
-                writer.writerow(metrics)
-
                 state = next_state
                 total_reward += reward
                 episode_rewards.append(reward)
@@ -447,6 +443,33 @@ class DQNCustomAgent:
             self.time_complexity = time.time() - start_time
             start_time = time.time()
 
+            cumulative_reward = sum(episode_rewards)
+            average_reward = np.mean(episode_rewards)
+            discounted_reward = sum([r * (self.discount_factor ** i) for i, r in enumerate(episode_rewards)])
+            convergence_rate = self.calculate_convergence_rate(episode_rewards)
+            sample_efficiency = len(episode_rewards)
+            policy_consistency = 1 - (policy_changes / max(1, len(episode_rewards) - 1))
+            policy_entropy = self.calculate_policy_entropy(
+            self.model(torch.FloatTensor(state).unsqueeze(0)).detach().numpy())
+
+            # Log the experience to CSV
+            metrics = {
+                'episode': episode,
+                'step': step,
+                'state': str(state),
+                'terminated': done,
+                'cumulative_reward': cumulative_reward,
+                'average_reward': np.mean(episode_rewards) if episode_rewards else 0,
+                'discounted_reward': discounted_reward,
+                'convergence_rate': self.calculate_convergence_rate(episode_rewards),
+                'sample_efficiency': len(episode_rewards),
+                'policy_consistency': 1 - (policy_changes / len(episode_rewards)) if episode_rewards else 1,
+                'policy_entropy': policy_entropy,
+                'time_complexity': time.time() - start_time,
+                'space_complexity': sum(p.numel() for p in self.model.parameters())
+            }
+            writer.writerow(metrics)
+
             if episode_q_values:
                 explained_variance = self.calculate_explained_variance(episode_rewards, episode_q_values)
             else:
@@ -479,20 +502,11 @@ class DQNCustomAgent:
                                        self.input_dim, self.hidden_dim, self.output_dim)
         value_range = range(0, 101, 10)
         all_states = self.generate_all_states()
-        # all_states_path = visualize_all_states(saved_model, all_states, self.run_name, self.max_episodes, alpha,
-        #                                        self.results_subdirectory)
-        # wandb.log({"All_States_Visualization": [wandb.Image(all_states_path)]})
         states = list(visited_state_counts.keys())
         visit_counts = list(visited_state_counts.values())
         self.log_states_visited(states, visit_counts, alpha, self.results_subdirectory)
 
         self.log_all_states_visualizations(self.model, self.run_name, self.max_episodes, alpha, self.results_subdirectory)
-
-
-        # states = list(visited_state_counts.keys())
-        # visit_counts = list(visited_state_counts.values())
-        # states_visited_path = states_visited_viz(states, visit_counts, alpha, self.results_subdirectory)
-        # wandb.log({"States Visited": [wandb.Image(states_visited_path)]})
 
         avg_rewards = [sum(lst) / len(lst) for lst in actual_rewards]
         explained_variance_path = os.path.join(self.results_subdirectory, 'explained_variance.png')
@@ -600,15 +614,17 @@ class DQNCustomAgent:
             done = False
             episode_rewards = []
             visited_states = []
-            loss = torch.tensor(0.0)  # Initialize loss here
+            step = 0
+
             while not done:
-                action = self.select_action(state)
-                next_state, reward, done, _, _ = self.env.step((action, alpha))
+                actions = self.select_action(state)
+                next_state, reward, done, _, _ = self.env.step((actions, alpha))
                 next_state = np.array(next_state, dtype=np.float32)
 
                 # When storing in replay memory, store the original action indices
                 original_actions = [action // 50 for action in actions]
                 self.replay_memory.append((state, original_actions, reward, next_state, done))
+
                 state = next_state
                 total_reward += reward
                 episode_rewards.append(reward)
@@ -619,38 +635,72 @@ class DQNCustomAgent:
 
                 if len(self.replay_memory) > self.batch_size:
                     batch = random.sample(self.replay_memory, self.batch_size)
-                    states, actions, rewards, next_states, dones = map(np.array, zip(*batch))
+                    states, actions, rewards_batch, next_states, dones = map(np.array, zip(*batch))
 
                     states = torch.FloatTensor(states)
                     actions = torch.LongTensor(actions)
-                    rewards = torch.FloatTensor(rewards)
+                    rewards_batch = torch.FloatTensor(rewards_batch)
                     next_states = torch.FloatTensor(next_states)
                     dones = torch.FloatTensor(dones)
 
                     current_q_values = self.model(states)
-                    current_q_values = current_q_values.view(self.batch_size, self.num_courses, -1)
-                    current_q_values = current_q_values.gather(2, actions.unsqueeze(2)).squeeze(2)
 
-                    next_q_values = self.model(next_states).view(self.batch_size, self.num_courses, -1).max(2)[0]
-                    target_q_values = rewards + (1 - dones) * self.discount_factor * next_q_values.sum(dim=1)
+                    # Handle multi-course scenario
+                    batch_size, num_actions = current_q_values.shape
+                    num_courses = actions.shape[1]
 
-                    loss = nn.MSELoss()(current_q_values.sum(dim=1), target_q_values)
+                    # Reshape current_q_values to [batch_size * num_courses, num_actions]
+                    current_q_values = current_q_values.repeat(1, num_courses).view(-1, num_actions)
+
+                    # Flatten actions to [batch_size * num_courses]
+                    actions = actions.view(-1)
+
+                    # Gather the Q-values for the taken actions
+                    current_q_values = current_q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
+
+                    # Reshape back to [batch_size, num_courses]
+                    current_q_values = current_q_values.view(batch_size, num_courses)
+
+                    next_q_values = self.model(next_states)
+                    next_q_values = next_q_values.repeat(1, num_courses).view(-1, num_actions).max(1)[0].view(
+                        batch_size, num_courses)
+
+                    # Sum Q-values across courses
+                    current_q_values = current_q_values.sum(1)
+                    next_q_values = next_q_values.sum(1)
+
+                    target_q_values = rewards_batch + (1 - dones) * self.discount_factor * next_q_values
+
+                    loss = nn.MSELoss()(current_q_values, target_q_values)
 
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
 
+                    step += 1
+
             self.run_rewards_per_episode.append(episode_rewards)
+
+            # Debugging: Print rewards for each episode
+            # print(f"Episode {episode}: Total Reward = {total_reward}, Episode Rewards = {episode_rewards}")
+
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
 
             pbar.update(1)
             pbar.set_description(
-                f"Loss:{loss}, Total Reward: {total_reward:.2f}, Epsilon: {self.exploration_rate:.2f}")
+                f"Total Reward: {total_reward:.2f}, Epsilon: {self.exploration_rate:.2f}")
 
         pbar.close()
 
+        # Debugging: Print all rewards after training
+        print("All Rewards:", self.run_rewards_per_episode)
 
         return self.run_rewards_per_episode
+
+    def moving_average(self, data, window_size):
+        if len(data) < window_size:
+            return data  # Not enough data to compute moving average, return original data
+        return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
 
     def compute_tolerance_interval(self, data, alpha, beta):
         """
@@ -684,21 +734,11 @@ class DQNCustomAgent:
         return sorted_data[l], sorted_data[u]
 
     def visualize_tolerance_interval_curve(self, returns_per_episode, alpha, beta, output_path, metric='mean'):
-        """
-        Visualize the (alpha, beta)-tolerance interval curve over episodes for mean or median performance.
-
-        Parameters:
-        returns_per_episode (list): The list of returns per episode across multiple runs.
-        alpha (float): The nominal error rate (e.g., 0.05 for 95% confidence level).
-        beta (float): The proportion of future samples to be captured (e.g., 0.9 for 90% of the population).
-        output_path (str): The file path to save the plot.
-        metric (str): The metric to visualize ('mean' or 'median').
-        """
         num_episodes = len(returns_per_episode[0])
         lower_bounds = []
         upper_bounds = []
         central_tendency = []
-        episodes = list(range(num_episodes))  # Assume all runs have the same number of episodes)
+        episodes = list(range(num_episodes))  # Assume all runs have the same number of episodes
 
         for episode in episodes:
             returns_at_episode = [returns[episode] for returns in
@@ -721,18 +761,21 @@ class DQNCustomAgent:
         upper_bounds = np.array(upper_bounds)
         central_tendency = np.array(central_tendency)
 
-        # Check for NaNs and Infs
-        if np.any(np.isnan(lower_bounds)) or np.any(np.isnan(upper_bounds)) or np.any(np.isnan(central_tendency)):
-            raise ValueError("Array contains NaNs.")
-        if np.any(np.isinf(lower_bounds)) or np.any(np.isinf(upper_bounds)) or np.any(np.isinf(central_tendency)):
-            raise ValueError("Array contains Infs.")
+        # Check data before smoothing
+        print("Central Tendency (pre-smoothing):", central_tendency)
+        print("Lower Bounds (pre-smoothing):", lower_bounds)
+        print("Upper Bounds (pre-smoothing):", upper_bounds)
 
         # Smoothing the curve
-        spline_points = 300  # Number of points for spline interpolation
-        episodes_smooth = np.linspace(episodes[0], episodes[-1], spline_points)
-        central_tendency_smooth = make_interp_spline(episodes, central_tendency)(episodes_smooth)
-        lower_bounds_smooth = make_interp_spline(episodes, lower_bounds)(episodes_smooth)
-        upper_bounds_smooth = make_interp_spline(episodes, upper_bounds)(episodes_smooth)
+        central_tendency_smooth = self.moving_average(central_tendency, 100)
+        lower_bounds_smooth = self.moving_average(lower_bounds, 100)
+        upper_bounds_smooth = self.moving_average(upper_bounds, 100)
+        episodes_smooth = list(range(len(central_tendency_smooth)))
+
+        # Check data after smoothing
+        print("Central Tendency (post-smoothing):", central_tendency_smooth)
+        print("Lower Bounds (post-smoothing):", lower_bounds_smooth)
+        print("Upper Bounds (post-smoothing):", upper_bounds_smooth)
 
         plt.figure(figsize=(10, 6))
         sns.set_style("whitegrid")
@@ -746,6 +789,57 @@ class DQNCustomAgent:
                          label=f'Tolerance Interval (α={alpha}, β={beta})')
 
         plt.title(f'Tolerance Interval Curve for {metric.capitalize()} Performance')
+        plt.xlabel('Episode')
+        plt.ylabel('Return')
+        plt.legend()
+        plt.savefig(output_path)
+        plt.close()
+
+    def visualize_confidence_interval(self, returns, alpha, output_path):
+        means = []
+        lower_bounds = []
+        upper_bounds = []
+        episodes = list(range(len(returns[0])))  # Assume all runs have the same number of episodes
+
+        for episode in episodes:
+            episode_returns = [returns[run][episode] for run in range(len(returns))]
+            mean = np.mean(episode_returns)
+            lower, upper = self.compute_confidence_interval(episode_returns, alpha)
+            means.append(mean)
+            lower_bounds.append(lower)
+            upper_bounds.append(upper)
+
+        means = np.array(means)
+        lower_bounds = np.array(lower_bounds)
+        upper_bounds = np.array(upper_bounds)
+
+        # Check data before smoothing
+        print("Means (pre-smoothing):", means)
+        print("Lower Bounds (pre-smoothing):", lower_bounds)
+        print("Upper Bounds (pre-smoothing):", upper_bounds)
+
+        # Smoothing the curve
+        means_smooth = self.moving_average(means, 100)
+        lower_bounds_smooth = self.moving_average(lower_bounds, 100)
+        upper_bounds_smooth = self.moving_average(upper_bounds, 100)
+        episodes_smooth = list(range(len(means_smooth)))
+
+        # Check data after smoothing
+        print("Means (post-smoothing):", means_smooth)
+        print("Lower Bounds (post-smoothing):", lower_bounds_smooth)
+        print("Upper Bounds (post-smoothing):", upper_bounds_smooth)
+
+        plt.figure(figsize=(10, 6))
+        sns.set_style("whitegrid")
+
+        # Plot mean performance
+        sns.lineplot(x=episodes_smooth, y=means_smooth, label='Mean Performance', color='blue')
+
+        # Fill between for confidence interval
+        plt.fill_between(episodes_smooth, lower_bounds_smooth, upper_bounds_smooth, color='lightblue', alpha=0.2,
+                         label=f'Confidence Interval (α={alpha})')
+
+        plt.title(f'Confidence Interval Curve for Mean Performance')
         plt.xlabel('Episode')
         plt.ylabel('Return')
         plt.legend()
@@ -770,55 +864,6 @@ class DQNCustomAgent:
         margin_of_error = t_value * std_err
         return mean - margin_of_error, mean + margin_of_error
 
-    def visualize_confidence_interval(self, returns, alpha, output_path):
-        """
-        Visualize the confidence interval over episodes.
-
-        Parameters:
-        returns (list): The list of returns per episode across multiple runs.
-        alpha (float): The nominal error rate (e.g., 0.05 for 95% confidence interval).
-        output_path (str): The file path to save the plot.
-        """
-        means = []
-        lower_bounds = []
-        upper_bounds = []
-        episodes = list(range(len(returns[0])))  # Assume all runs have the same number of episodes
-
-        for episode in episodes:
-            episode_returns = [returns[run][episode] for run in range(len(returns))]
-            mean = np.mean(episode_returns)
-            lower, upper = self.compute_confidence_interval(episode_returns, alpha)
-            means.append(mean)
-            lower_bounds.append(lower)
-            upper_bounds.append(upper)
-
-        means = np.array(means)
-        lower_bounds = np.array(lower_bounds)
-        upper_bounds = np.array(upper_bounds)
-
-        # Smoothing the curve
-        spline_points = 300  # Number of points for spline interpolation
-        episodes_smooth = np.linspace(episodes[0], episodes[-1], spline_points)
-        means_smooth = make_interp_spline(episodes, means)(episodes_smooth)
-        lower_bounds_smooth = make_interp_spline(episodes, lower_bounds)(episodes_smooth)
-        upper_bounds_smooth = make_interp_spline(episodes, upper_bounds)(episodes_smooth)
-
-        plt.figure(figsize=(10, 6))
-        sns.set_style("whitegrid")
-
-        # Plot mean performance
-        sns.lineplot(x=episodes_smooth, y=means_smooth, label='Mean Performance', color='blue')
-
-        # Fill between for confidence interval
-        plt.fill_between(episodes_smooth, lower_bounds_smooth, upper_bounds_smooth, color='lightblue', alpha=0.2,
-                         label=f'Confidence Interval (α={alpha})')
-
-        plt.title(f'Confidence Interval Curve for Mean Performance')
-        plt.xlabel('Episode')
-        plt.ylabel('Return')
-        plt.legend()
-        plt.savefig(output_path)
-        plt.close()
 
     def visualize_boxplot_confidence_interval(self, returns, alpha, output_path):
         """
@@ -868,9 +913,9 @@ class DQNCustomAgent:
         wandb.log({"Confidence Interval": [wandb.Image(confidence_output_path)]})
 
         # Box Plot Confidence Intervals
-        boxplot_output_path = os.path.join(self.results_subdirectory, 'boxplot_confidence_interval.png')
-        self.visualize_boxplot_confidence_interval(returns_per_episode, confidence_alpha, boxplot_output_path)
-        wandb.log({"Box Plot Confidence Interval": [wandb.Image(boxplot_output_path)]})
+        # boxplot_output_path = os.path.join(self.results_subdirectory, 'boxplot_confidence_interval.png')
+        # self.visualize_boxplot_confidence_interval(returns_per_episode, confidence_alpha, boxplot_output_path)
+        # wandb.log({"Box Plot Confidence Interval": [wandb.Image(boxplot_output_path)]})
 
 
 def load_saved_model(model_directory, agent_type, run_name, timestamp, input_dim, hidden_dim, action_space_nvec):

@@ -1,5 +1,5 @@
 wandb:
-  project: "indabapaper"
+  project: "indabafinal-dqn"
 #  project: "campus-indoor-model"
   entity: "safe-campus"
 

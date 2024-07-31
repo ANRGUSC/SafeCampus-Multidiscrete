@@ -472,6 +472,9 @@ class QLearningAgent:
 
         print(f"Training log saved to {csv_file_path}")
 
+    def moving_average(self, data, window_size):
+        return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
+
     def compute_tolerance_interval(self, data, alpha, beta):
         """
         Compute the (alpha, beta)-tolerance interval for a given data sample.
@@ -498,8 +501,8 @@ class QLearningAgent:
             return sorted_data[0], sorted_data[-1]  # If nu is greater than available data points, return full range
 
         # Compute the indices for the lower and upper bounds
-        l = int(np.floor(nu / 2))
-        u = int(np.ceil(n - nu / 2))
+        l = int(np.floor((n - nu) / 2))
+        u = int(np.ceil(n - (n - nu) / 2))
 
         return sorted_data[l], sorted_data[u]
 
@@ -541,12 +544,12 @@ class QLearningAgent:
         upper_bounds = np.array(upper_bounds)
         central_tendency = np.array(central_tendency)
 
-        # Smoothing the curve
-        spline_points = 300  # Number of points for spline interpolation
-        episodes_smooth = np.linspace(episodes[0], episodes[-1], spline_points)
-        central_tendency_smooth = make_interp_spline(episodes, central_tendency)(episodes_smooth)
-        lower_bounds_smooth = make_interp_spline(episodes, lower_bounds)(episodes_smooth)
-        upper_bounds_smooth = make_interp_spline(episodes, upper_bounds)(episodes_smooth)
+        # Apply moving average
+        window_size = 100  # Set the window size for moving average
+        central_tendency_smooth = self.moving_average(central_tendency, window_size)
+        lower_bounds_smooth = self.moving_average(lower_bounds, window_size)
+        upper_bounds_smooth = self.moving_average(upper_bounds, window_size)
+        episodes_smooth = range(len(central_tendency_smooth))
 
         plt.figure(figsize=(10, 6))
         sns.set_style("whitegrid")
@@ -578,6 +581,9 @@ class QLearningAgent:
         (float, float): The lower and upper bounds of the confidence interval.
         """
         n = len(data)
+        if n == 0:
+            return np.nan, np.nan  # Handle case with no data
+
         mean = np.mean(data)
         std_err = np.std(data, ddof=1) / np.sqrt(n)
         t_value = stats.t.ppf(1 - alpha / 2, df=n - 1)
@@ -593,6 +599,7 @@ class QLearningAgent:
         alpha (float): The nominal error rate (e.g., 0.05 for 95% confidence interval).
         output_path (str): The file path to save the plot.
         """
+        window_size = 100  # Set the window size for moving average
         means = []
         lower_bounds = []
         upper_bounds = []
@@ -610,12 +617,11 @@ class QLearningAgent:
         lower_bounds = np.array(lower_bounds)
         upper_bounds = np.array(upper_bounds)
 
-        # Smoothing the curve
-        spline_points = 300  # Number of points for spline interpolation
-        episodes_smooth = np.linspace(episodes[0], episodes[-1], spline_points)
-        means_smooth = make_interp_spline(episodes, means)(episodes_smooth)
-        lower_bounds_smooth = make_interp_spline(episodes, lower_bounds)(episodes_smooth)
-        upper_bounds_smooth = make_interp_spline(episodes, upper_bounds)(episodes_smooth)
+        # Apply moving average
+        means_smooth = self.moving_average(means, window_size)
+        lower_bounds_smooth = self.moving_average(lower_bounds, window_size)
+        upper_bounds_smooth = self.moving_average(upper_bounds, window_size)
+        episodes_smooth = range(len(means_smooth))
 
         plt.figure(figsize=(10, 6))
         sns.set_style("whitegrid")
@@ -653,21 +659,21 @@ class QLearningAgent:
                 # Flatten the list of returns if it's a nested list
                 if isinstance(returns[run][episode], (list, np.ndarray)):
                     for ret in returns[run][episode]:
-                        data.append([run, ret])
+                        data.append([episode, ret])
                 else:
-                    data.append([run, returns[run][episode]])
+                    data.append([episode, returns[run][episode]])
 
-        df = pd.DataFrame(data, columns=["Run", "Return"])
+        df = pd.DataFrame(data, columns=["Episode", "Return"])
 
         plt.figure(figsize=(12, 8))
         sns.set_style("whitegrid")
 
         # Plot the boxplot
-        sns.boxplot(x="Run", y="Return", data=df, whis=[100 * alpha / 2, 100 * (1 - alpha / 2)], color='lightblue')
+        sns.boxplot(x="Episode", y="Return", data=df, whis=[100 * alpha / 2, 100 * (1 - alpha / 2)], color='lightblue')
         plt.title(f'Box Plot of Returns with Confidence Interval (α={alpha})')
-        plt.xlabel('Run')
+        plt.xlabel('Episode')
         plt.ylabel('Return')
-        plt.xticks(ticks=range(num_runs), labels=range(num_runs))
+        plt.xticks(ticks=range(num_episodes), labels=range(num_episodes))
         plt.savefig(output_path)
         plt.close()
 
@@ -687,22 +693,19 @@ class QLearningAgent:
             while not terminated:
                 action = self._policy('train', c_state)
                 converted_state = str(tuple(c_state))
-                state_idx = self.all_states.index(converted_state)  # Define state_idx here
-
-                list_action = list(eval(self.all_actions[action]))
-                c_list_action = [i * 50 for i in list_action]  # for 0, 1, 2,
+                state_idx = self.all_states.index(converted_state)
+                c_list_action = [i * 50 for i in action]  # scale 0, 1, 2 to 0, 50, 100
 
                 action_alpha_list = [*c_list_action, alpha]
 
                 # Execute the action and observe the next state and reward
                 next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
-
-                # Update the Q-table using the observed reward and the maximum future value
-                old_value = self.q_table[self.all_states.index(converted_state), action]
+                action_idx = sum([a * (3 ** i) for i, a in enumerate(action)])  # Convert action list to single index
+                old_value = self.q_table[state_idx, action_idx]
                 next_max = np.max(self.q_table[self.all_states.index(str(tuple(next_state)))])
                 new_value = (1 - self.learning_rate) * old_value + self.learning_rate * (
                         reward + self.discount_factor * next_max)
-                self.q_table[self.all_states.index(converted_state), action] = new_value
+                self.q_table[state_idx, action_idx] = new_value
 
                 step += 1
                 c_state = next_state
@@ -745,9 +748,9 @@ class QLearningAgent:
         wandb.log({"Confidence Interval": [wandb.Image(confidence_output_path)]})
 
         # Box Plot Confidence Intervals
-        boxplot_output_path = os.path.join(self.results_subdirectory, 'boxplot_confidence_interval.png')
-        self.visualize_boxplot_confidence_interval(returns_per_episode, confidence_alpha, boxplot_output_path)
-        wandb.log({"Box Plot Confidence Interval": [wandb.Image(boxplot_output_path)]})
+        # boxplot_output_path = os.path.join(self.results_subdirectory, 'boxplot_confidence_interval.png')
+        # self.visualize_boxplot_confidence_interval(returns_per_episode, confidence_alpha, boxplot_output_path)
+        # wandb.log({"Box Plot Confidence Interval": [wandb.Image(boxplot_output_path)]})
 
         # Calculate and print the mean reward in the last episode across all runs
         last_episode_rewards = [returns[-1] for returns in returns_per_episode]
