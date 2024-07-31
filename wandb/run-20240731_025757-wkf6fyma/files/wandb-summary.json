@@ -1,1 +1,0 @@
-{"Moving Average": 0.49, "Standard Deviation": 0.523787289841974, "Cumulative Reward": 5, "average_return": 0.3125, "Exploration Rate": 0.006720488972162898, "Learning Rate": 0.01, "Q-value Mean": -11.59427840677454, "reward_mean": 0.72, "TD Error Mean": 0.3506236659546753, "_timestamp": 1722419962.0932071, "_runtime": 84.5432231426239, "_step": 4900, "_wandb": {"runtime": 79}}
