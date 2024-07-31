@@ -21,6 +21,19 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.interpolate import make_interp_spline
 import torch.nn.functional as F
+import csv
+import os
+import time
+epsilon = 1e-10
+
+def log_metrics_to_csv(file_path, metrics):
+    file_exists = os.path.isfile(file_path)
+    with open(file_path, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=metrics.keys())
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(metrics)
+
 
 def set_seed(seed):
     random.seed(seed)
@@ -263,6 +276,12 @@ class DQNCustomAgent:
         self.decay_handler = ExplorationRateDecay(self.max_episodes, self.min_exploration_rate, self.exploration_rate)
         self.decay_function = self.agent_config['agent']['e_decay_function']
 
+        # CSV file for metrics
+        self.csv_file_path = os.path.join(self.results_subdirectory, 'training_metrics.csv')
+        self.time_complexity = 0
+        self.convergence_rate = 0
+        self.policy_entropy = 0
+
     def select_action(self, state):
         if random.random() < self.exploration_rate:
             return [random.randint(0, self.output_dim - 1) * 50 for _ in range(self.num_courses)]
@@ -277,13 +296,35 @@ class DQNCustomAgent:
 
                 actions = q_values.max(1)[1].tolist()
                 return [action * 50 for action in actions]
+
+    def calculate_convergence_rate(self, episode_rewards):
+        # Simple example: Convergence rate is the change in reward over the last few episodes
+        if len(episode_rewards) < 2:
+            return 0
+        return np.mean(np.diff(episode_rewards[-10:]))  # Change in reward over the last 10 episodes
+
+    def calculate_policy_entropy(self, q_values):
+        policy = np.exp(q_values) / np.sum(np.exp(q_values))
+        entropy = -np.sum(policy * np.log(policy))
+        return entropy
     def train(self, alpha):
+        start_time = time.time()
         pbar = tqdm(total=self.max_episodes, desc="Training Progress", leave=True)
 
         actual_rewards = []
         predicted_rewards = []
         visited_state_counts = {}
         explained_variance_per_episode = []
+
+        file_exists = os.path.isfile(self.csv_file_path)
+        csvfile = open(self.csv_file_path, 'a', newline='')
+        writer = csv.DictWriter(csvfile,
+                                fieldnames=['episode', 'step', 'state', 'action', 'reward', 'next_state', 'terminated',
+                                            'cumulative_reward', 'average_reward', 'discounted_reward',
+                                            'convergence_rate', 'sample_efficiency', 'policy_consistency',
+                                            'policy_entropy', 'time_complexity', 'space_complexity'])
+        if not file_exists:
+            writer.writeheader()
 
         for episode in range(self.max_episodes):
             self.decay_handler.set_decay_function(self.decay_function)
@@ -294,6 +335,10 @@ class DQNCustomAgent:
             episode_rewards = []
             visited_states = []
             episode_q_values = []
+            step = 0
+            policy_changes = 0
+            last_action = None
+
 
             while not done:
                 actions = self.select_action(state)
@@ -303,6 +348,38 @@ class DQNCustomAgent:
                 # When storing in replay memory, store the original action indices
                 original_actions = [action // 50 for action in actions]
                 self.replay_memory.append((state, original_actions, reward, next_state, done))
+                # Calculate cumulative reward and discounted reward
+                total_reward += reward
+                cumulative_reward = sum(episode_rewards)
+                discounted_reward = sum([r * (self.discount_factor ** i) for i, r in enumerate(episode_rewards)])
+                # Track policy changes
+                # Track policy changes
+                if last_action is not None and original_actions != last_action:
+                    policy_changes += 1
+
+                q_values = self.model(torch.FloatTensor(state).unsqueeze(0)).detach().numpy()
+                policy_entropy = self.calculate_policy_entropy(q_values)
+
+                # Log the experience to CSV
+                metrics = {
+                    'episode': episode,
+                    'step': step,
+                    'state': str(state),
+                    'action': str(original_actions),
+                    'reward': reward,
+                    'next_state': str(next_state),
+                    'terminated': done,
+                    'cumulative_reward': cumulative_reward,
+                    'average_reward': np.mean(episode_rewards) if episode_rewards else 0,
+                    'discounted_reward': discounted_reward,
+                    'convergence_rate': self.calculate_convergence_rate(episode_rewards),
+                    'sample_efficiency': len(episode_rewards),
+                    'policy_consistency': 1 - (policy_changes / len(episode_rewards)) if episode_rewards else 1,
+                    'policy_entropy': policy_entropy,
+                    'time_complexity': time.time() - start_time,
+                    'space_complexity': sum(p.numel() for p in self.model.parameters())
+                }
+                writer.writerow(metrics)
 
                 state = next_state
                 total_reward += reward
@@ -311,6 +388,7 @@ class DQNCustomAgent:
                 state_tuple = tuple(state)
                 visited_states.append(state_tuple)
                 visited_state_counts[state_tuple] = visited_state_counts.get(state_tuple, 0) + 1
+
                 # print(info)
 
                 if len(self.replay_memory) > self.batch_size:
@@ -361,9 +439,13 @@ class DQNCustomAgent:
                     self.optimizer.step()
 
                     episode_q_values.extend(current_q_values.detach().numpy().tolist())
+                step += 1
+
 
             actual_rewards.append(episode_rewards)
             predicted_rewards.append(episode_q_values)
+            self.time_complexity = time.time() - start_time
+            start_time = time.time()
 
             if episode_q_values:
                 explained_variance = self.calculate_explained_variance(episode_rewards, episode_q_values)
@@ -386,6 +468,7 @@ class DQNCustomAgent:
                 f"Total Reward: {total_reward:.2f}, Epsilon: {self.exploration_rate:.2f}")
 
         pbar.close()
+        csvfile.close()
 
         # After training, save the model
         model_file_path = os.path.join(self.model_subdirectory, 'model.pt')

@@ -21,11 +21,26 @@ import collections
 import seaborn as sns
 from scipy import stats
 from scipy.interpolate import make_interp_spline
-import pandas as pd
+import time
 
 SEED = 100
 random.seed(SEED)
 np.random.seed(SEED)
+epsilon = 1e-10
+
+
+
+
+def log_metrics_to_csv(file_path, metrics):
+    file_exists = os.path.isfile(file_path)
+    with open(file_path, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=metrics.keys())
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(metrics)
+
+
+
 class ExplorationRateDecay:
     def __init__(self, max_episodes, min_exploration_rate, initial_exploration_rate):
         self.max_episodes = max_episodes
@@ -162,14 +177,6 @@ class QLearningAgent:
         columns = np.prod(env.action_space.nvec)
         self.q_table = np.zeros((rows, columns))
 
-        # Initialize the Q-table with values from the CSV file
-        # self.initialize_q_table_from_csv('policy_data.csv')
-
-        # Visualize the Q-table after initialization
-        # self.visualize_q_table()
-        # print(self.q_table)
-        # print("q table shape: ", self.q_table.shape)
-
         # Initialize other required variables and structures
         self.training_data = []
         self.possible_actions = [list(range(0, (k))) for k in self.env.action_space.nvec]
@@ -190,6 +197,9 @@ class QLearningAgent:
 
         self.decay_handler = ExplorationRateDecay(self.max_episodes, self.min_exploration_rate, self.exploration_rate)
         self.decay_function = self.agent_config['agent']['e_decay_function']
+
+        # CSV file for metrics
+        self.csv_file_path = os.path.join(self.results_subdirectory, 'training_metrics.csv')
 
     def log_all_states_visualizations(self, q_table, all_states, states, run_name, max_episodes, alpha, results_subdirectory):
         file_paths = visualize_all_states(q_table, all_states, states, run_name, max_episodes, alpha,
@@ -247,26 +257,6 @@ class QLearningAgent:
         file_path = os.path.join(policy_dir, f'q_table_{self.run_name}.npy')
         np.save(file_path, self.q_table)
         print(f"Q-table saved to {file_path}")
-
-    # def _policy(self, mode, state):
-    #     """Define the policy of the agent."""
-    #     global action
-    #
-    #     state_idx = self.all_states.index(str(tuple(state)))
-    #
-    #     if mode == 'train':
-    #         if random.uniform(0, 1) > self.exploration_rate:
-    #             q_values = self.q_table[state_idx]
-    #             action = np.argmax(q_values)
-    #         else:
-    #             sampled_actions = str(tuple(self.env.action_space.sample().tolist()))
-    #             action = self.all_actions.index(sampled_actions)
-    #
-    #     elif mode == 'test':
-    #         action = np.argmax(self.q_table[state_idx])
-    #
-    #     return action
-
     def _policy(self, mode, state):
         state_idx = self.all_states.index(str(tuple(state)))
         if mode == 'train':
@@ -285,6 +275,7 @@ class QLearningAgent:
 
     def train(self, alpha):
         """Train the agent."""
+        start_time = time.time()
         actual_rewards = []
         predicted_rewards = []
         rewards_per_episode = []
@@ -295,13 +286,19 @@ class QLearningAgent:
         td_errors = []
         training_log = []
         cumulative_rewards = []
-
         # Initialize CSV logging
-        csv_file_path = os.path.join(self.results_subdirectory, 'approx-training_log.csv')
-        csv_file = open(csv_file_path, mode='w', newline='')
-        writer = csv.writer(csv_file)
-        # Write headers
-        writer.writerow(['Episode', 'Step', 'State', 'Action', 'Reward', 'Next_State', 'Terminated'])
+        csv_file_path = os.path.join(self.results_subdirectory, 'training_metrics.csv')
+        # Initialize CSV logging
+        csv_file_path = os.path.join(self.results_subdirectory, 'training_metrics.csv')
+        file_exists = os.path.isfile(csv_file_path)
+        csvfile = open(csv_file_path, 'a', newline='')
+        writer = csv.DictWriter(csvfile,
+                                fieldnames=['episode', 'step', 'state', 'action', 'reward', 'next_state', 'terminated',
+                                            'cumulative_reward', 'average_reward', 'discounted_reward',
+                                            'convergence_rate', 'sample_efficiency', 'policy_consistency',
+                                            'policy_entropy', 'time_complexity', 'space_complexity'])
+        if not file_exists:
+            writer.writeheader()
 
         for episode in tqdm(range(self.max_episodes)):
             self.decay_handler.set_decay_function(self.decay_function)
@@ -327,26 +324,13 @@ class QLearningAgent:
             while not terminated:
                 action = self._policy('train', c_state)
                 converted_state = str(tuple(c_state))
-                state_idx = self.all_states.index(converted_state)  # Define state_idx here
-
-                # list_action = list(eval(self.all_actions[action]))
-                # c_list_action = [i * 50 for i in list_action] # for 0, 1, 2,
-
-                # Convert action to course-specific actions dynamically
+                state_idx = self.all_states.index(converted_state)
                 c_list_action = [i * 50 for i in action]  # scale 0, 1, 2 to 0, 50, 100
 
                 action_alpha_list = [*c_list_action, alpha]
 
                 # Execute the action and observe the next state and reward
                 next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
-
-                # Update the Q-table using the observed reward and the maximum future value
-                # old_value = self.q_table[self.all_states.index(converted_state), action]
-                # next_max = np.max(self.q_table[self.all_states.index(str(tuple(next_state)))])
-                #
-                # new_value = (1 - self.learning_rate) * old_value + self.learning_rate * (
-                #             reward + self.discount_factor * next_max)
-                # self.q_table[self.all_states.index(converted_state), action] = new_value
                 action_idx = sum([a * (3 ** i) for i, a in enumerate(action)])  # Convert action list to single index
                 old_value = self.q_table[state_idx, action_idx]
                 next_max = np.max(self.q_table[self.all_states.index(str(tuple(next_state)))])
@@ -371,8 +355,31 @@ class QLearningAgent:
                 self.state_action_visits[state_idx, action] += 1
                 self.state_visits[state_idx] += 1
 
+                # Calculate cumulative reward and discounted reward
+                total_reward += reward
+                cumulative_reward = sum(e_return)
+                discounted_reward = sum([r * (self.discount_factor ** i) for i, r in enumerate(e_return)])
+
                 # Log the experience to CSV
-                writer.writerow([episode, step, converted_state, action, reward, str(tuple(next_state)), terminated])
+                metrics = {
+                    'episode': episode,
+                    'step': step,
+                    'state': converted_state,
+                    'action': action,
+                    'reward': reward,
+                    'next_state': str(tuple(next_state)),
+                    'terminated': terminated,
+                    'cumulative_reward': cumulative_reward,
+                    'average_reward': np.mean(e_return) if e_return else 0,
+                    'discounted_reward': discounted_reward,
+                    'convergence_rate': policy_changes,
+                    'sample_efficiency': len(e_return),
+                    'policy_consistency': 1 - (policy_changes / len(e_return)) if e_return else 1,
+                    'policy_entropy': -sum([p * np.log(p + epsilon) for p in self.q_table[state_idx]]) if e_return else 0,
+                    'time_complexity': time.time() - start_time,
+                    'space_complexity': self.q_table.nbytes
+                }
+                writer.writerow(metrics)
                 step += 1
                 c_state = next_state
                 # Update other accumulators...
@@ -422,11 +429,17 @@ class QLearningAgent:
 
             predicted_rewards.append(e_predicted_rewards)
             actual_rewards.append(e_return)
-            self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
+            avg_episode_return = sum(e_return) / len(e_return)
+            cumulative_rewards.append(total_reward)  # Update cumulative rewards
+            rewards_per_episode.append(avg_episode_return)
+            avg_td_error = np.mean(episode_td_errors)  # Average TD error for this episode
+            td_errors.append(avg_td_error)
 
             # Log data for each episode
             training_log.append([episode, step, total_reward, avg_td_error, policy_changes, self.exploration_rate])
+            self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
 
+        csvfile.close()
         print("Training complete.")
         # Save Q-table after training
         self.save_q_table()
@@ -436,14 +449,9 @@ class QLearningAgent:
 
         visualize_q_table(self.q_table, self.results_subdirectory, self.max_episodes)
 
-        csv_file.close()
         states = list(visited_state_counts.keys())
         visit_counts = list(visited_state_counts.values())
         self.log_states_visited(states, visit_counts, alpha, self.results_subdirectory)
-        # Pass actual and predicted rewards to visualizer
-        # explained_variance_path = visualize_explained_variance(actual_rewards, predicted_rewards, self.results_subdirectory, self.max_episodes)
-        # wandb.log({"Explained Variance": [wandb.Image(explained_variance_path)]})
-
         self.log_all_states_visualizations(self.q_table, self.all_states, self.states, self.run_name, self.max_episodes, alpha,
                                       self.results_subdirectory)
 
