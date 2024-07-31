@@ -1,7 +1,8 @@
 # SafeCampus-Multidiscrete
 
-This project is part of the main SafeCampus project is designed to train and evaluate reinforcement learning agents in a custom Gym environment for campus scenarios. The agents are implemented using different RL algorithms, such as Q-Learning and DQN.
-
+This tool is designed to train and evaluate reinforcement learning agents for epidemic control simulations 
+based on stochastic discrete epidemic models. 
+The agents are implemented using model-free off-policy methods. Specifically, we employ tabular Q-Learning and Deep Q-Networks (DQN) to learn policies for controlling the spread of an epidemic for a single classroom operation.
 ## Installation
 
 ### Prerequisites
