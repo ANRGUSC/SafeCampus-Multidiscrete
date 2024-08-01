@@ -8,3 +8,4 @@ campus_data_generator/
 .idea/
 wandb/
 __pycache__/
+training_evaluation/
