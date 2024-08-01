@@ -1,9 +1,10 @@
-results
-policy
-run.txt
+results/
+policy/
+run.txt/
 train_run_names.txt
 custom_dqn_run.txt
 run_names_dqn_custom.txt
-campus_data_generator
-.idea
-wandb
+campus_data_generator/
+.idea/
+wandb/
+__pycache__/
