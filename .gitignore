@@ -9,3 +9,5 @@ campus_data_generator/
 wandb/
 __pycache__/
 training_evaluation/
+dqn.py
+qlearning.py
