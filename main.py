@@ -8,18 +8,18 @@ from pathlib import Path
 from campus_gym.envs.campus_gym_env import CampusGymEnv
 import optuna
 from optuna.visualization import plot_optimization_history, plot_param_importances, plot_contour, plot_slice
+
 def load_config(file_path):
     with open(file_path, 'r') as file:
         config = yaml.safe_load(file)
     return config
 
-def initialize_environment(shared_config_path):
+def initialize_environment(shared_config_path, read_community_risk_from_csv=False, csv_path=None):
     shared_config = load_config(shared_config_path)
-    env = gym.make(shared_config['environment']['environment_id'])
+    env = CampusGymEnv(read_community_risk_from_csv=read_community_risk_from_csv, csv_path=csv_path)
     return env, shared_config
 
 def format_agent_class_name(agent_type):
-    # Define special cases where acronyms should remain in uppercase
     special_acronyms = {
         'offppo': 'OffPPO',
         'ppo': 'PPO',
@@ -28,21 +28,18 @@ def format_agent_class_name(agent_type):
         'ddpg': 'DDPG',
         'sac': 'SAC',
         'td3': 'TD3',
-        # Add other special acronyms here
     }
-
     parts = agent_type.split('_')
     formatted_parts = [special_acronyms.get(part, part.capitalize()) for part in parts]
     return ''.join(formatted_parts) + 'Agent'
 
 def run_training(env, shared_config_path, alpha, agent_type, is_sweep=False):
-    if not is_sweep:  # if not a sweep, initialize wandb here
+    if not is_sweep:
         shared_config = load_config(shared_config_path)
         wandb.init(project=shared_config['wandb']['project'], entity=shared_config['wandb']['entity'])
 
     if wandb.run is None:
-        raise RuntimeError(
-            "wandb run has not been initialized. Please make sure wandb.init() is called before run_training.")
+        raise RuntimeError("wandb run has not been initialized. Please make sure wandb.init() is called before run_training.")
 
     tr_name = wandb.run.name + '_' + str(alpha)
     agent_name = f"sweep_{tr_name}" if is_sweep else str(tr_name)
@@ -54,21 +51,15 @@ def run_training(env, shared_config_path, alpha, agent_type, is_sweep=False):
     effective_alpha = wandb.config.alpha if is_sweep else alpha
     env.alpha = effective_alpha
 
-    # Dynamically import the agent class based on agent_type
     AgentModule = __import__(f'{agent_type}.agent', fromlist=[f'{format_agent_class_name(agent_type)}'])
     AgentClass = getattr(AgentModule, f'{format_agent_class_name(agent_type)}')
     if is_sweep:
-        agent = AgentClass(env, agent_name,
-                           shared_config_path=shared_config_path,
-                           override_config=dict(wandb.config))
+        agent = AgentClass(env, agent_name, shared_config_path=shared_config_path, override_config=dict(wandb.config))
     else:
-        agent = AgentClass(env, agent_name,
-                           shared_config_path=shared_config_path,
-                           agent_config_path=agent_config_path)
+        agent = AgentClass(env, agent_name, shared_config_path=shared_config_path, agent_config_path=agent_config_path)
 
     agent.train(effective_alpha)
 
-    # Save the run_name for later use
     filename = str(f'run_names_{agent_type}.txt')
     with open(filename, 'a') as file:
         file.write(agent_name + '\n')
@@ -87,7 +78,6 @@ def run_sweep(env, shared_config_path, agent_type):
     run_training(env, shared_config_path, alpha, agent_type, is_sweep=True)
     print("Running Sweep...")
 
-
 def run_optuna(env, shared_config_path, agent_type):
     shared_config = load_config(shared_config_path)
     optuna_config_path = os.path.join('config', 'optuna_config.yaml')
@@ -104,7 +94,6 @@ def run_optuna(env, shared_config_path, agent_type):
                 config['agent'][param] = trial.suggest_int(param, param_config['min'], param_config['max'])
             elif param_config['type'] == 'categorical':
                 config['agent'][param] = trial.suggest_categorical(param, param_config['values'])
-            # Add more types as needed
 
         wandb.config.update(config['agent'])
 
@@ -113,9 +102,7 @@ def run_optuna(env, shared_config_path, agent_type):
 
         AgentModule = __import__(f'{agent_type}.agent', fromlist=[f'{format_agent_class_name(agent_type)}'])
         AgentClass = getattr(AgentModule, f'{format_agent_class_name(agent_type)}')
-        agent = AgentClass(env, agent_name,
-                           shared_config_path=shared_config_path,
-                           override_config=config)  # Pass the entire config dict
+        agent = AgentClass(env, agent_name, shared_config_path=shared_config_path, override_config=config)
 
         agent.train(config['agent']['alpha'])
 
@@ -128,13 +115,11 @@ def run_optuna(env, shared_config_path, agent_type):
     study = optuna.create_study(direction=optuna_config.get('direction', 'maximize'))
     study.optimize(objective, n_trials=optuna_config.get('n_trials', 20))
 
-    # Visualization
     fig1 = plot_optimization_history(study)
     fig2 = plot_param_importances(study)
     fig3 = plot_contour(study)
     fig4 = plot_slice(study)
 
-    # Save the figures
     fig1.write_html(os.path.join('optuna_runs', "optuna_optimization_history.html"))
     fig2.write_html(os.path.join('optuna_runs', "optuna_param_importances.html"))
     fig3.write_html(os.path.join('optuna_runs', "optuna_contour.html"))
@@ -147,32 +132,9 @@ def run_optuna(env, shared_config_path, agent_type):
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
 
-def run_evaluation(env, shared_config_path, agent_type, alpha, run_name):
+def run_evaluation(env, shared_config_path, agent_type, alpha, run_name, csv_path=None):
     print("Running Evaluation...")
-
-    # Load agent configuration
-    agent_config_path = os.path.join('config', f'config_{agent_type}.yaml')
-    load_config(agent_config_path)
-
-    AgentModule = __import__(f'{agent_type}.agent', fromlist=[f'{format_agent_class_name(agent_type)}'])
-    AgentClass = getattr(AgentModule, f'{format_agent_class_name(agent_type)}')
-    agent = AgentClass(env, run_name,
-                       shared_config_path=shared_config_path,
-                       agent_config_path=os.path.join('config', f'config_{agent_type}.yaml'))
-
-    # Load the trained Q-table (assuming it's saved after training)
-    q_table_path = os.path.join('policy', f'q_table_{run_name}.npy')
-    agent.q_table = np.load(q_table_path)
-
-    # Run the test
-    test_episodes = 5 # Define the number of test episodes
-    evaluation_metrics = agent.test(test_episodes, alpha)
-
-    # Print or process the evaluation metrics as needed
-    print("Evaluation Metrics:", evaluation_metrics)
-
-def run_evaluation_random(env, shared_config_path, agent_type, alpha, run_name):
-    print("Running Evaluation...")
+    print("csv_path: ", csv_path)
 
     # Load agent configuration
     agent_config_path = os.path.join('config', f'config_{agent_type}.yaml')
@@ -181,14 +143,28 @@ def run_evaluation_random(env, shared_config_path, agent_type, alpha, run_name):
     # Initialize agent
     AgentModule = __import__(f'{agent_type}.agent', fromlist=[f'{format_agent_class_name(agent_type)}'])
     AgentClass = getattr(AgentModule, f'{format_agent_class_name(agent_type)}')
-    agent = AgentClass(env, run_name,
-                       shared_config_path=shared_config_path,
-                       agent_config_path=os.path.join('config', f'config_{agent_type}.yaml'))
-    # Run the test
-    test_episodes = 4  # Define the number of test episodes
+    agent = AgentClass(env, run_name, shared_config_path=shared_config_path, agent_config_path=agent_config_path, csv_path=csv_path)
+
+    # Run the evaluation
+    avg_reward = agent.evaluate(run_name=run_name, alpha=alpha, csv_path=csv_path)
+    print(f"Average Reward for {agent_type} agent: {avg_reward}")
+
+
+
+
+def run_evaluation_random(env, shared_config_path, agent_type, alpha, run_name):
+    print("Running Evaluation...")
+
+    agent_config_path = os.path.join('config', f'config_{agent_type}.yaml')
+    load_config(agent_config_path)
+
+    AgentModule = __import__(f'{agent_type}.agent', fromlist=[f'{format_agent_class_name(agent_type)}'])
+    AgentClass = getattr(AgentModule, f'{format_agent_class_name(agent_type)}')
+    agent = AgentClass(env, run_name, shared_config_path=shared_config_path, agent_config_path=os.path.join('config', f'config_{agent_type}.yaml'))
+
+    test_episodes = 4
     evaluation_metrics = agent.test_baseline_random(test_episodes, alpha)
 
-    # Print or process the evaluation metrics as needed
     print("Evaluation Metrics for random agent:", evaluation_metrics)
 
 def run_multiple_runs(env, shared_config_path, agent_type, alpha_t, beta_t, num_runs):
@@ -203,12 +179,9 @@ def run_multiple_runs(env, shared_config_path, agent_type, alpha_t, beta_t, num_
     wandb.config.update(agent_config)
     wandb.config.update({'alpha_t': alpha_t, 'beta_t': beta_t, 'num_runs': num_runs})
 
-    # Dynamically import the agent class based on agent_type
     AgentModule = __import__(f'{agent_type}.agent', fromlist=[f'{format_agent_class_name(agent_type)}'])
     AgentClass = getattr(AgentModule, f'{format_agent_class_name(agent_type)}')
-    agent = AgentClass(env, agent_name,
-                       shared_config_path=shared_config_path,
-                       agent_config_path=agent_config_path)
+    agent = AgentClass(env, agent_name, shared_config_path=shared_config_path, agent_config_path=agent_config_path)
 
     agent.multiple_runs(num_runs, alpha_t, beta_t)
 
@@ -218,26 +191,26 @@ def run_multiple_runs(env, shared_config_path, agent_type, alpha_t, beta_t, num_
 def main():
     parser = argparse.ArgumentParser(description='Run training, evaluation, multiple runs, or a sweep.')
     parser.add_argument('mode', choices=['train', 'eval', 'random', 'sweep', 'multi', 'optuna'], help='Mode to run the script in.')
-    parser.add_argument('--alpha', type=float, default=0.5, help='Reward parameter alpha.')
+    parser.add_argument('--alpha', type=float, default=0.6, help='Reward parameter alpha.')
     parser.add_argument('--alpha_t', type=float, default=0.05, help='Alpha value for tolerance interval.')
     parser.add_argument('--beta_t', type=float, default=0.9, help='Beta value for tolerance interval.')
-    parser.add_argument('--num_runs', type=int, default=20
-
-                        , help='Number of runs for tolerance interval.')
+    parser.add_argument('--num_runs', type=int, default=20, help='Number of runs for tolerance interval.')
     parser.add_argument('--agent_type', default='q_learning', help='Type of agent to use.')
     parser.add_argument('--run_name', default=None, help='Unique name for the training run or evaluation.')
+    parser.add_argument('--read_from_csv', action='store_true', help='Read community risk values from CSV.')
+    parser.add_argument('--csv_path', default=None, help='Path to the CSV file containing community risk values.')
 
     global args
     args = parser.parse_args()
 
     shared_config_path = os.path.join('config', 'config_shared.yaml')
-    env, shared_config = initialize_environment(shared_config_path)
+    env, shared_config = initialize_environment(shared_config_path, args.read_from_csv, args.csv_path)
 
     if args.mode == 'train':
         run_training(env, shared_config_path, args.alpha, args.agent_type)
 
     elif args.mode == 'eval':
-        run_evaluation(env, shared_config_path, args.agent_type, args.alpha, args.run_name)
+        run_evaluation(env, shared_config_path, args.agent_type, args.alpha, args.run_name, args.csv_path)
 
     elif args.mode == 'random':
         run_evaluation_random(env, shared_config_path, args.agent_type, args.alpha, args.run_name)
@@ -260,3 +233,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

@@ -25,7 +25,7 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
     num_courses = len(students_per_course)
 
     file_paths = []
-    colors = ['#a0b1ba', '#00b000', '#009ade']  # Light Red, Light Blue, Light Green
+    colors = ['blue', 'orange', 'red']  # Light Red, Light Blue, Light Green
     color_map = {0: colors[0], 1: colors[1], 2: colors[2]}
 
     fig, axes = plt.subplots(1, num_courses, figsize=(5 * num_courses, 5), squeeze=False)
@@ -467,9 +467,9 @@ import ast
 #
 #     return file_path
 
-def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
-    # print('Original states:', states)
 
+
+def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
     def parse_state(state):
         if isinstance(state, (list, tuple)):
             try:
@@ -505,24 +505,20 @@ def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
     file_paths = []
 
     for dim in range(num_infected_dims):
-        # Create a 2D grid for the heatmap
         x_coords = sorted(set(state[dim] for state in valid_states))
-        y_coords = sorted(set(state[-1] for state in valid_states))  # Community risk
+        y_coords = sorted(set(state[-1] for state in valid_states))
         grid = np.zeros((len(y_coords), len(x_coords)))
 
-        # Fill the grid with visit counts
         for state, count in zip(valid_states, visit_counts):
-            i = y_coords.index(state[-1])  # Community risk
-            j = x_coords.index(state[dim])  # Infected dimension
+            i = y_coords.index(state[-1])
+            j = x_coords.index(state[dim])
             grid[i, j] += count
 
-        # Create a heatmap
         plt.figure(figsize=(12, 10))
         plt.imshow(grid, cmap='plasma', interpolation='nearest', origin='lower')
         cbar = plt.colorbar(label='Visitation Count')
         cbar.ax.tick_params(labelsize=10)
 
-        # Customize the plot
         plt.title(f'State Visitation Heatmap (α={alpha}, Infected Dim: {dim + 1})', fontsize=16)
         plt.xlabel(f'Infected Students (Dim {dim + 1})', fontsize=14)
         plt.ylabel('Community Risk', fontsize=14)
@@ -531,11 +527,11 @@ def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
         plt.grid(True, color='white', linestyle='-', linewidth=0.5, alpha=0.5)
         plt.tight_layout()
 
-        # Save the plot
         file_path = f"{results_subdirectory}/states_visited_heatmap_α_{alpha}_infected_dim_{dim + 1}.png"
         plt.savefig(file_path, dpi=300, bbox_inches='tight')
         plt.close()
         file_paths.append(file_path)
 
     return file_paths
+
 

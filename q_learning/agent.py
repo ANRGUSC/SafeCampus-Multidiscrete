@@ -28,9 +28,6 @@ random.seed(SEED)
 np.random.seed(SEED)
 epsilon = 1e-10
 
-
-
-
 def log_metrics_to_csv(file_path, metrics):
     file_exists = os.path.isfile(file_path)
     with open(file_path, 'a', newline='') as csvfile:
@@ -38,8 +35,6 @@ def log_metrics_to_csv(file_path, metrics):
         if not file_exists:
             writer.writeheader()
         writer.writerow(metrics)
-
-
 
 class ExplorationRateDecay:
     def __init__(self, max_episodes, min_exploration_rate, initial_exploration_rate):
@@ -129,11 +124,8 @@ class ExplorationRateDecay:
 
         return exploration_rate
 
-
-# Function to log the visualizations to wandb
-
 class QLearningAgent:
-    def __init__(self, env, run_name, shared_config_path, agent_config_path=None, override_config=None):
+    def __init__(self, env, run_name, shared_config_path, agent_config_path=None, override_config=None, csv_path=None):
         # Load Shared Config
         self.shared_config = load_config(shared_config_path)
 
@@ -201,6 +193,20 @@ class QLearningAgent:
         # CSV file for metrics
         self.csv_file_path = os.path.join(self.results_subdirectory, 'training_metrics.csv')
 
+        # Handle CSV input
+        if csv_path:
+            self.community_risk_values = self.read_community_risk_from_csv(csv_path)
+            self.max_weeks = len(self.community_risk_values)
+        else:
+            self.community_risk_values = None
+            self.max_weeks = self.env.campus_state.model.max_weeks
+
+    def read_community_risk_from_csv(self, csv_path):
+        try:
+            community_risk_df = pd.read_csv(csv_path)
+            return community_risk_df['Risk-Level'].tolist()
+        except Exception as e:
+            raise ValueError(f"Error reading CSV file: {e}")
     def log_all_states_visualizations(self, q_table, all_states, states, run_name, max_episodes, alpha, results_subdirectory):
         file_paths = visualize_all_states(q_table, all_states, states, run_name, max_episodes, alpha,
                                           results_subdirectory, self.env.students_per_course)
@@ -238,6 +244,7 @@ class QLearningAgent:
         plt.ylabel("States")
         plt.savefig(os.path.join(self.results_subdirectory, 'q_table_heatmap.png'))
         plt.close()
+
     def initialize_q_table_from_csv(self, csv_file):
         # Read the CSV file
         df = pd.read_csv(csv_file)
@@ -249,6 +256,7 @@ class QLearningAgent:
             self.q_table[index, 2] = row['Reward 100']
 
         print("Q-table initialized from CSV.")
+
     def save_q_table(self):
         policy_dir = self.shared_config['directories']['policy_directory']
         if not os.path.exists(policy_dir):
@@ -257,6 +265,7 @@ class QLearningAgent:
         file_path = os.path.join(policy_dir, f'q_table_{self.run_name}.npy')
         np.save(file_path, self.q_table)
         print(f"Q-table saved to {file_path}")
+
     def _policy(self, mode, state):
         state_idx = self.all_states.index(str(tuple(state)))
         if mode == 'train':
@@ -286,19 +295,20 @@ class QLearningAgent:
         td_errors = []
         training_log = []
         cumulative_rewards = []
-        # Initialize CSV logging
-        csv_file_path = os.path.join(self.results_subdirectory, 'training_metrics.csv')
-        # Initialize CSV logging
-        csv_file_path = os.path.join(self.results_subdirectory, 'training_metrics.csv')
+        q_value_diffs = []
+
+        c_file_name = f'training_metrics_q_{self.run_name}.csv'
+        csv_file_path = os.path.join(self.results_subdirectory, c_file_name)
         file_exists = os.path.isfile(csv_file_path)
         csvfile = open(csv_file_path, 'a', newline='')
         writer = csv.DictWriter(csvfile,
-                                fieldnames=['episode', 'step', 'state', 'action', 'reward', 'next_state', 'terminated',
-                                            'cumulative_reward', 'average_reward', 'discounted_reward',
-                                            'convergence_rate', 'sample_efficiency', 'policy_consistency',
-                                            'policy_entropy', 'time_complexity', 'space_complexity'])
+                                fieldnames=['episode', 'cumulative_reward', 'average_reward', 'discounted_reward',
+                                            'q_value_change', 'sample_efficiency', 'policy_entropy',
+                                            'space_complexity'])
         if not file_exists:
             writer.writeheader()
+
+        previous_q_table = np.copy(self.q_table)
 
         for episode in tqdm(range(self.max_episodes)):
             self.decay_handler.set_decay_function(self.decay_function)
@@ -306,154 +316,102 @@ class QLearningAgent:
             c_state = state[0]
             terminated = False
             e_return = []
-            e_allowed = []
-            e_infected_students = []
-            state_transitions = []
             total_reward = 0
-            e_predicted_rewards = []
-            e_community_risk = []
-            last_episode['infected'] = e_infected_students
-            last_episode['allowed'] = e_allowed
-            last_episode['community_risk'] = e_community_risk
             step = 0
             episode_td_errors = []
             last_action = None
             policy_changes = 0
-            episode_count = 0
+            episode_visited_states = set()
+            q_values_list = []
 
             while not terminated:
                 action = self._policy('train', c_state)
                 converted_state = str(tuple(c_state))
                 state_idx = self.all_states.index(converted_state)
-                c_list_action = [i * 50 for i in action]  # scale 0, 1, 2 to 0, 50, 100
 
+                episode_visited_states.add(converted_state)
+
+                c_list_action = [i * 50 for i in action]
                 action_alpha_list = [*c_list_action, alpha]
 
-                # Execute the action and observe the next state and reward
                 next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
-                action_idx = sum([a * (3 ** i) for i, a in enumerate(action)])  # Convert action list to single index
+                action_idx = sum([a * (3 ** i) for i, a in enumerate(action)])
                 old_value = self.q_table[state_idx, action_idx]
                 next_max = np.max(self.q_table[self.all_states.index(str(tuple(next_state)))])
                 new_value = (1 - self.learning_rate) * old_value + self.learning_rate * (
-                            reward + self.discount_factor * next_max)
+                        reward + self.discount_factor * next_max)
                 self.q_table[state_idx, action_idx] = new_value
 
-                # Calculate TD error
                 td_error = abs(reward + self.discount_factor * next_max - old_value)
                 episode_td_errors.append(td_error)
 
-                # Track policy changes
                 if last_action is not None and last_action != action:
                     policy_changes += 1
                 last_action = action
 
-                # Store predicted reward (Q-value) for the taken action
                 predicted_reward = self.q_table[state_idx, action]
-                e_predicted_rewards.append(predicted_reward)
 
-                # Increment the state-action visit count
+                q_values_list.append(self.q_table[state_idx])
+
                 self.state_action_visits[state_idx, action] += 1
                 self.state_visits[state_idx] += 1
 
-                # Calculate cumulative reward and discounted reward
                 total_reward += reward
-                cumulative_reward = sum(e_return)
-                discounted_reward = sum([r * (self.discount_factor ** i) for i, r in enumerate(e_return)])
+                e_return.append(reward)
 
-                # Log the experience to CSV
-                metrics = {
-                    'episode': episode,
-                    'step': step,
-                    'state': converted_state,
-                    'action': action,
-                    'reward': reward,
-                    'next_state': str(tuple(next_state)),
-                    'terminated': terminated,
-                    'cumulative_reward': cumulative_reward,
-                    'average_reward': np.mean(e_return) if e_return else 0,
-                    'discounted_reward': discounted_reward,
-                    'convergence_rate': policy_changes,
-                    'sample_efficiency': len(e_return),
-                    'policy_consistency': 1 - (policy_changes / len(e_return)) if e_return else 1,
-                    'policy_entropy': -sum([p * np.log(p + epsilon) for p in self.q_table[state_idx]]) if e_return else 0,
-                    'time_complexity': time.time() - start_time,
-                    'space_complexity': self.q_table.nbytes
-                }
-                writer.writerow(metrics)
                 step += 1
                 c_state = next_state
-                # Update other accumulators...
-                week_reward = int(reward)
-                total_reward += week_reward
-                e_return.append(week_reward)
-                q_value_history.append(np.mean(self.q_table))
-                reward_history.append(reward)
-                e_allowed.append(info['allowed'])
-                e_infected_students.append(info['infected'])
-                e_community_risk.append(info['community_risk'])
-                if converted_state not in visited_state_counts:
-                    visited_state_counts[converted_state] = 1
-                else:
-                    visited_state_counts[converted_state] += 1
 
             avg_episode_return = sum(e_return) / len(e_return)
-            cumulative_rewards.append(total_reward)  # Update cumulative rewards
-
+            cumulative_rewards.append(total_reward)
             rewards_per_episode.append(avg_episode_return)
-
-            avg_td_error = np.mean(episode_td_errors)  # Average TD error for this episode
+            avg_td_error = np.mean(episode_td_errors)
             td_errors.append(avg_td_error)
 
-            # If enough episodes have been run, check for convergence
-            if episode >= self.moving_average_window - 1:
-                window_rewards = rewards_per_episode[max(0, episode - self.moving_average_window + 1):episode + 1]
-                moving_avg = np.mean(window_rewards)
-                std_dev = np.std(window_rewards)
+            unique_state_visits = len(episode_visited_states)
+            sample_efficiency = unique_state_visits
 
-                # Store the current moving average for comparison in the next episode
-                self.prev_moving_avg = moving_avg
+            # Log visited states and their counts
+            for state in episode_visited_states:
+                visited_state_counts[state] = visited_state_counts.get(state, 0) + 1
 
-                # Log the moving average and standard deviation along with the episode number
-                average_return = total_reward / len(e_return)
-                wandb.log({
-                    'Moving Average': moving_avg,
-                    'Standard Deviation': std_dev,
-                    'Cumulative Reward': cumulative_rewards[-1],  # Log cumulative reward
-                    'average_return': average_return,
-                    'Exploration Rate': self.exploration_rate,
-                    'Learning Rate': self.learning_rate,
-                    'Q-value Mean': np.mean(q_value_history[-100:]),
-                    'reward_mean': np.mean(reward_history[-100:]),
-                    'TD Error Mean': np.mean(td_errors[-100:])
-                })
+            q_values = np.array(q_values_list)
+            exp_q_values = np.exp(
+                q_values - np.max(q_values, axis=1, keepdims=True))
+            probabilities = exp_q_values / np.sum(exp_q_values, axis=1, keepdims=True)
+            policy_entropy = -np.sum(probabilities * np.log(probabilities + epsilon), axis=1).mean()
 
-            predicted_rewards.append(e_predicted_rewards)
-            actual_rewards.append(e_return)
-            avg_episode_return = sum(e_return) / len(e_return)
-            cumulative_rewards.append(total_reward)  # Update cumulative rewards
-            rewards_per_episode.append(avg_episode_return)
-            avg_td_error = np.mean(episode_td_errors)  # Average TD error for this episode
-            td_errors.append(avg_td_error)
+            q_value_change = np.mean((self.q_table - previous_q_table) ** 2)
+            q_value_diffs.append(q_value_change)
+            previous_q_table = np.copy(self.q_table)
 
-            # Log data for each episode
-            training_log.append([episode, step, total_reward, avg_td_error, policy_changes, self.exploration_rate])
+            metrics = {
+                'episode': episode,
+                'cumulative_reward': total_reward,
+                'average_reward': avg_episode_return,
+                'discounted_reward': sum([r * (self.discount_factor ** i) for i, r in enumerate(e_return)]),
+                'q_value_change': q_value_change,
+                'sample_efficiency': sample_efficiency,
+                'policy_entropy': policy_entropy,
+                'space_complexity': self.q_table.nbytes
+            }
+            writer.writerow(metrics)
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
 
         csvfile.close()
         print("Training complete.")
-        # Save Q-table after training
         self.save_q_table()
 
-        # Save training log to CSV
         self.save_training_log_to_csv(training_log)
 
         visualize_q_table(self.q_table, self.results_subdirectory, self.max_episodes)
 
+        # Convert visited_state_counts dictionary to lists for logging
         states = list(visited_state_counts.keys())
         visit_counts = list(visited_state_counts.values())
         self.log_states_visited(states, visit_counts, alpha, self.results_subdirectory)
-        self.log_all_states_visualizations(self.q_table, self.all_states, self.states, self.run_name, self.max_episodes, alpha,
-                                      self.results_subdirectory)
+        self.log_all_states_visualizations(self.q_table, self.all_states, self.states, self.run_name, self.max_episodes,
+                                           alpha, self.results_subdirectory)
 
         return actual_rewards
 
@@ -471,6 +429,116 @@ class QLearningAgent:
             writer.writerows(training_log)
 
         print(f"Training log saved to {csv_file_path}")
+
+    def evaluate(self, run_name, num_episodes=1, alpha=0.5, csv_path=None):
+        policy_dir = self.shared_config['directories']['policy_directory']
+        q_table_path = os.path.join(policy_dir, f'q_table_{run_name}.npy')
+        results_directory = self.results_subdirectory
+
+        if not os.path.exists(q_table_path):
+            raise FileNotFoundError(f"Q-table file not found in {q_table_path}")
+
+        self.q_table = np.load(q_table_path)
+        print(f"Loaded Q-table from {q_table_path}")
+
+        total_rewards = []
+        allowed_values_over_time = []
+        infected_values_over_time = []
+
+        # Prepare the CSV file for writing
+        evaluation_subdirectory = os.path.join(results_directory, run_name)
+        os.makedirs(evaluation_subdirectory, exist_ok=True)
+        csv_file_path = os.path.join(evaluation_subdirectory, f'evaluation_metrics_{run_name}.csv')
+
+        if csv_path:
+            self.community_risk_values = self.read_community_risk_from_csv(csv_path)
+            self.max_weeks = len(self.community_risk_values)
+            print(f"Community Risk Values: {self.community_risk_values}")
+
+        with open(csv_file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Episode', 'Step', 'State', 'Action', 'Total Reward'])
+
+            for episode in range(num_episodes):
+                state, _ = self.env.reset()
+                print(f"Initial state for episode {episode + 1}: {state}")
+                c_state = state
+                terminated = False
+                total_reward = 0
+                step = 0
+
+                # Initialize plotting lists with the initial state
+                allowed_values_over_time.append(0)  # No action taken at the initial state
+                infected_values_over_time.append(c_state[0] * 10)  # Scale from 0-10 to 0-100
+
+                while not terminated:
+                    action = self._policy('test', c_state)
+                    print('State:', c_state)
+                    c_list_action = [i * 50 for i in action]  # scale 0, 1, 2 to 0, 50, 100
+                    action_alpha_list = [*c_list_action, alpha]
+                    next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
+                    c_state = next_state
+                    total_reward += reward
+
+                    # Write the step's total reward to the CSV file
+                    writer.writerow([episode + 1, step + 1, c_state[0] * 10, c_list_action[0], total_reward])
+                    step += 1
+
+                    # Collect data for plotting
+                    if episode == 0:  # Only collect data for the first episode for simplicity
+                        allowed_values_over_time.append(c_list_action[0])
+                        infected_values_over_time.append(c_state[0] * 10)  # Scale from 0-10 to 0-100
+
+                total_rewards.append(total_reward)
+                print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+
+        avg_reward = np.mean(total_rewards)
+        print(f"Average Reward over {num_episodes} episodes: {avg_reward}")
+
+        # Plotting
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
+
+        # Subplot 1: Community Risk and Allowed Values
+        ax1.set_xlabel('Week')
+        ax1.set_ylabel('Community Risk', color='tab:green')
+        ax1.plot(range(1, len(self.community_risk_values) + 1), self.community_risk_values, marker='s', linestyle='--',
+                 color='tab:green', label='Community Risk')
+        ax1.tick_params(axis='y', labelcolor='tab:green')
+
+        ax1b = ax1.twinx()
+        ax1b.set_ylabel('Allowed Values', color='tab:orange')
+        ax1b.bar(range(1, len(allowed_values_over_time) + 1), allowed_values_over_time, color='tab:orange', alpha=0.6,
+                 width=0.4, align='center', label='Allowed')
+        ax1b.tick_params(axis='y', labelcolor='tab:orange')
+
+        ax1.legend(loc='upper left')
+        ax1b.legend(loc='upper right')
+
+        # Subplot 2: Infected Students Over Time
+        ax2.set_xlabel('Week')
+        ax2.set_ylabel('Number of Infected Students', color='tab:blue')
+        ax2.plot(range(1, len(infected_values_over_time) + 1), infected_values_over_time, marker='o', linestyle='-',
+                 color='tab:blue', label='Infected')
+        ax2.tick_params(axis='y', labelcolor='tab:blue')
+
+        ax2.legend(loc='upper left')
+
+        # Set x-ticks to show fewer labels and label weeks from 1 to n
+        ticks = range(0, len(self.community_risk_values),
+                      max(1, len(self.community_risk_values) // 10))  # Show approximately 10 ticks
+        labels = [f'Week {i + 1}' for i in ticks]
+
+        ax1.set_xticks(ticks)
+        ax1.set_xticklabels(labels, rotation=45)
+        ax2.set_xticks(ticks)
+        ax2.set_xticklabels(labels, rotation=45)
+
+        # Adjust layout and save the plot
+        plt.tight_layout()
+        plt.savefig(os.path.join(evaluation_subdirectory, f"evaluation_plot_{run_name}.png"))
+        plt.show()
+
+        return avg_reward
 
     def moving_average(self, data, window_size):
         return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
@@ -757,8 +825,12 @@ class QLearningAgent:
         mean_last_episode_reward = np.mean(last_episode_rewards)
         print(f"Mean reward in the last episode across all runs: {mean_last_episode_reward}")
 
-    def test(self, episodes, alpha, baseline_policy=None):
-        """Test the trained agent with extended evaluation metrics."""
+    def eval_with_csv(self, alpha, episodes, csv_path):
+        """Evaluate the trained agent using community risk values from a CSV file."""
+
+        # Read the community risk values from the CSV file
+        community_risk_df = pd.read_csv(csv_path)
+        community_risk_values = community_risk_df['community_risk'].tolist()
 
         total_class_capacity_utilized = 0
         last_action = None
@@ -792,26 +864,23 @@ class QLearningAgent:
             community_risk = []
             eps_rewards = []
 
-            while not terminated:
+            for step, comm_risk in enumerate(community_risk_values):
+                if terminated:
+                    break
                 converted_state = str(tuple(c_state))
                 state_idx = self.all_states.index(converted_state)
 
-                # Select an action based on the Q-table or baseline policy
-                if baseline_policy:
-                    action = baseline_policy(c_state)
-                else:
-                    action = np.argmax(self.q_table[state_idx])
+                # Select an action based on the Q-table
+                action = np.argmax(self.q_table[state_idx])
 
-                print("action", action)
                 list_action = list(eval(self.all_actions[action]))
-                print("list action", list_action)
-                c_list_action = [i * 50 for i in list_action]  # for 0, 1, 2,
-                # c_list_action = [i * 25 if i < 3 else 100 for i in list_action]
+                c_list_action = [i * 50 for i in list_action]
 
                 action_alpha_list = [*c_list_action, alpha]
+                self.env.campus_state.community_risk = comm_risk  # Set community risk value
+
                 # Execute the action and observe the next state and reward
                 next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
-                print(info)
                 eps_rewards.append(reward)
                 infected.append(info['infected'])
                 allowed.append(info['allowed'])
@@ -833,9 +902,6 @@ class QLearningAgent:
             allowed_dict[episode] = allowed
             rewards_dict[episode] = eps_rewards
             community_risk_dict[episode] = community_risk
-
-
-
 
         print("infected: ", infected_dict, "allowed: ", allowed_dict, "rewards: ", rewards_dict, "community_risk: ", community_risk_dict)
         for episode in infected_dict:
@@ -878,7 +944,6 @@ class QLearningAgent:
 
             plt.close()  # Close the figure to free up memory
 
-
         with open(eval_file_path, mode='a', newline='') as file:
             writer = csv.writer(file)
 
@@ -893,142 +958,8 @@ class QLearningAgent:
                         allowed_dict[episode][step],
                         rewards_dict[episode][step],
                         community_risk_dict[episode][step]
-
                     ])
 
         print(f"Data for alpha {alpha} appended to {eval_file_path}")
 
         return infected_dict, allowed_dict, rewards_dict, community_risk_dict
-
-    def test_baseline_random(self, episodes, alpha, baseline_policy=None):
-        """Test the trained agent with extended evaluation metrics."""
-
-        total_class_capacity_utilized = 0
-        last_action = None
-        policy_changes = 0
-        total_reward = 0
-        rewards = []
-        infected_dict = {}
-        allowed_dict = {}
-        rewards_dict = {}
-        community_risk_dict = {}
-        eval_dir = 'evaluation'
-        r_alpha = alpha * 100
-        if not os.path.exists(eval_dir):
-            os.makedirs(eval_dir)
-        eval_file_path = os.path.join(eval_dir, f'eval_policies_data_aaai_multi.csv')
-        # Check if the file exists already. If not, create it and add the header
-        if not os.path.isfile(eval_file_path):
-            with open(eval_file_path, mode='w', newline='') as file:
-                writer = csv.writer(file)
-                # Write the header to the CSV file
-                writer.writerow(['Alpha', 'Episode', 'Step', 'Infections', 'Allowed', 'Reward', 'CommunityRisk'])
-
-        for episode in tqdm(range(episodes)):
-            state = self.env.reset()
-            c_state = state[0]
-            terminated = False
-            episode_reward = 0
-            episode_infections = 0
-            infected = []
-            allowed = []
-            eps_rewards = []
-            community_risk = []
-
-            while not terminated:
-                converted_state = str(tuple(c_state))
-                state_idx = self.all_states.index(converted_state)
-
-                # Select a random action
-                sampled_actions = str(tuple(self.env.action_space.sample().tolist()))
-                # print("sampled action", sampled_actions, self.exploration_rate)
-
-                action = self.all_actions.index(sampled_actions)
-                list_action = list(eval(self.all_actions[action]))
-                c_list_action = [i * 50 for i in list_action]  # for 0, 1, 2,
-
-                # c_list_action = [i * 25 if i < 3 else 100 for i in list_action]
-
-                action_alpha_list = [*c_list_action, alpha]
-                # Execute the action and observe the next state and reward
-                next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
-                print(info)
-                eps_rewards.append(reward)
-                infected.append(info['infected'])
-                allowed.append(info['allowed'])
-                episode_infections += sum(info['infected'])
-                community_risk.append(info['community_risk'])
-
-                # Update policy stability metrics
-                if last_action is not None and last_action != action:
-                    policy_changes += 1
-                last_action = action
-
-                # Update class utilization metrics
-                total_class_capacity_utilized += sum(info['allowed'])
-
-                # Update the state to the next state
-                c_state = next_state
-
-            infected_dict[episode] = infected
-            allowed_dict[episode] = allowed
-            rewards_dict[episode] = eps_rewards
-            community_risk_dict[episode] = community_risk
-
-        print("infected: ", infected_dict, "allowed: ", allowed_dict, "rewards: ", rewards_dict, "community_risk: ", community_risk_dict)
-        for episode in infected_dict:
-            plt.figure(figsize=(15, 5))
-
-            # Flatten the list of lists for infections and allowed students
-            infections = [inf[0] for inf in infected_dict[episode]] if episode in infected_dict else []
-            allowed_students = [alw[0] for alw in allowed_dict[episode]] if episode in allowed_dict else []
-            rewards = rewards_dict[episode] if episode in rewards_dict else []
-
-            # Convert range to numpy array for element-wise operations
-            steps = np.arange(len(infections))
-
-            # Define bar width and offset
-            bar_width = 0.4
-            offset = bar_width / 4
-
-            # Bar plot for infections
-            plt.bar(steps - offset, infections, width=bar_width, label='Infections', color='#bc5090', align='center')
-
-            # Bar plot for allowed students
-            plt.bar(steps + offset, allowed_students, width=bar_width, label='Allowed Students', color='#003f5c',
-                    alpha=0.5, align='edge')
-
-            # Line plot for rewards
-            plt.plot(steps, rewards, label='Rewards', color='#ffa600', linestyle='-', marker='o')
-
-            plt.xlabel('Step')
-            plt.ylabel('Count')
-            plt.title(f'Evaluation of Random Agent Policy for {episode + 1} episode(s)')
-            plt.legend()
-
-            plt.tight_layout()
-
-            # Save the figure
-            fig_path = os.path.join(eval_dir, f'episode_random_agent_metrics.png')
-            plt.savefig(fig_path)
-            print(f"Figure saved to {fig_path}")
-
-            plt.close()  # Close the figure to free up memory
-
-        with open(eval_file_path, mode='a', newline='') as file:
-            writer = csv.writer(file)
-
-            # Iterate over each episode and step to append the data
-            for episode in tqdm(range(episodes)):
-                for step in range(len(infected_dict[episode])):
-                    writer.writerow([
-                        0.0,
-                        episode,
-                        step,
-                        infected_dict[episode][step],
-                        allowed_dict[episode][step],
-                        rewards_dict[episode][step],
-                        community_risk_dict[episode][step]
-                    ])
-
-        print(f"Data for alpha {0.0} appended to {eval_file_path}")

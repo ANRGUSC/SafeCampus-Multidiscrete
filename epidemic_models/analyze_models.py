@@ -6,10 +6,10 @@ def estimate_infected_students(current_infected, allowed_per_course, community_r
     infected_students = []
     total_population = total_students
     for i in range(len(allowed_per_course)):
-        const_1 = 0.005  # reduce this to a smaller value
-        const_2 = 0.01  # reduce this value to be very small 0.01, 0.02
-        infected = int(((const_1 * current_infected[i]) * (allowed_per_course[i])) + (
-                (const_2 * community_risk) * allowed_per_course[i] ** 2))
+        alpha = 0.005  # reduce this to a smaller value
+        beta = 0.01  # reduce this value to be very small 0.01, 0.02
+        infected = int(((alpha * current_infected[i]) * (allowed_per_course[i])) + (
+                (beta * community_risk) * allowed_per_course[i] ** 2))
 
         infected = min(infected, allowed_per_course[i])
 

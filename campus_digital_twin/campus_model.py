@@ -1,33 +1,38 @@
 import random
-random.seed(100)
+import csv
+import logging
+
 class CampusModel:
-    def __init__(self, num_courses=1, students_per_course=None, max_weeks=16, initial_infection_rate=0.2):
+    def __init__(self, num_courses=1, students_per_course=100, max_weeks=16, initial_infection_rate=0.2, read_weeks_from_csv=False, csv_path=None):
         self.num_courses = num_courses
 
-        # Handle varying students per course
-        if students_per_course is None:
-            self.students_per_course = [random.choice([10, 100]) for _ in range(num_courses)]
-        elif isinstance(students_per_course, int):
-            self.students_per_course = [students_per_course] * num_courses
-        elif isinstance(students_per_course, list) and len(students_per_course) == num_courses:
-            self.students_per_course = students_per_course
-        else:
-            raise ValueError("Invalid students_per_course input")
+        # Override students per course and initial infection based on fixed values
+        self.students_per_course = [students_per_course] * num_courses
+        self.initial_infection_rate = [initial_infection_rate] * num_courses
+        self.initial_infection = [20] * num_courses  # Ensure initial infection is always 20
 
         self.total_students = sum(self.students_per_course)
-        self.max_weeks = max_weeks
 
-        # Handle initial infection rate
-        if isinstance(initial_infection_rate, (int, float)):
-            self.initial_infection_rate = [initial_infection_rate] * num_courses
-        elif isinstance(initial_infection_rate, list) and len(initial_infection_rate) == num_courses:
-            self.initial_infection_rate = initial_infection_rate
+        # Initialize community risk values list
+        self.community_risk_values = []
+
+        # Handle reading max weeks from CSV
+        if read_weeks_from_csv and csv_path is not None:
+            self._read_weeks_from_csv(csv_path)
         else:
-            raise ValueError("Invalid initial_infection_rate input")
+            self.max_weeks = max_weeks
+            logging.info(f"Max weeks set from default: {self.max_weeks}")
 
-        # Calculate initial number of infected students per course
-        self.initial_infection = [int(rate * students) for rate, students in
-                                  zip(self.initial_infection_rate, self.students_per_course)]
+    def _read_weeks_from_csv(self, csv_path):
+        try:
+            with open(csv_path, mode='r') as file:
+                reader = csv.DictReader(file)
+                self.community_risk_values = [float(row['Risk-Level']) for row in reader]
+                self.max_weeks = len(self.community_risk_values)
+                logging.info(f"Max weeks set from CSV: {self.max_weeks}")
+        except Exception as e:
+            logging.error(f"Error reading CSV file: {e}")
+            raise ValueError(f"Error reading CSV file: {e}")
 
     def number_of_students_per_course(self):
         return self.students_per_course
@@ -37,4 +42,3 @@ class CampusModel:
 
     def get_initial_infection(self):
         return self.initial_infection
-
