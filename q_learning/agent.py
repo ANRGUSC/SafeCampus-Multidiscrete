@@ -7,8 +7,6 @@ from .utilities import load_config
 from .visualizer import visualize_all_states, visualize_q_table, visualize_variance_in_rewards_heatmap, \
     visualize_explained_variance, visualize_variance_in_rewards, visualize_infected_vs_community_risk_table, states_visited_viz
 import os
-import io
-import json
 import logging
 from datetime import datetime
 from tqdm import tqdm
@@ -16,17 +14,50 @@ import wandb
 import random
 import pandas as pd
 import csv
-import math
-import collections
-import seaborn as sns
 from scipy import stats
-from scipy.interpolate import make_interp_spline
 import time
+import torch
+import seaborn as sns
+import torch.nn as nn
+import torch.optim as optim
 
 SEED = 100
 random.seed(SEED)
 np.random.seed(SEED)
+torch.manual_seed(SEED)
 epsilon = 1e-10
+
+
+# Define the neural network model for the Lyapunov function
+class LyapunovNet(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(LyapunovNet, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc3 = nn.Linear(hidden_dim, output_dim)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        out = self.relu(self.fc1(x))
+        out = self.relu(self.fc2(out))
+        out = self.fc3(out)
+        return out
+
+# Instantiate the model
+input_dim = 3  # Number of features
+hidden_dim = 64  # Number of hidden units
+output_dim = 1  # Output is a single value representing V(s)
+model = LyapunovNet(input_dim, hidden_dim, output_dim)
+
+# Define loss function and optimizer
+loss_function = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+def V(s, theta):
+    # Ensure that each element of s is a scalar or flatten it if it's a list
+    s = [item[0] if isinstance(item, list) else item for item in s]
+    assert len(s) == 3, f"Feature vector length mismatch: expected 3, got {len(s)}"
+    return 0.5 * (theta[0] * s[0] ** 2 + theta[1] * s[1] ** 2 + theta[2] * s[2] ** 2)
 
 def log_metrics_to_csv(file_path, metrics):
     file_exists = os.path.isfile(file_path)
@@ -290,12 +321,14 @@ class QLearningAgent:
         rewards_per_episode = []
         last_episode = {}
         visited_state_counts = {}
-        q_value_history = []
-        reward_history = []
         td_errors = []
         training_log = []
         cumulative_rewards = []
         q_value_diffs = []
+        # Initialize accumulators for allowed and infected
+        allowed_means_per_episode = []
+        infected_means_per_episode = []
+        total_steps = 0  # To calculate mean
 
         c_file_name = f'training_metrics_q_{self.run_name}.csv'
         csv_file_path = os.path.join(self.results_subdirectory, c_file_name)
@@ -323,6 +356,8 @@ class QLearningAgent:
             policy_changes = 0
             episode_visited_states = set()
             q_values_list = []
+            episode_allowed = []
+            episode_infected = []
 
             while not terminated:
                 action = self._policy('train', c_state)
@@ -338,6 +373,9 @@ class QLearningAgent:
                 action_idx = sum([a * (3 ** i) for i, a in enumerate(action)])
                 old_value = self.q_table[state_idx, action_idx]
                 next_max = np.max(self.q_table[self.all_states.index(str(tuple(next_state)))])
+                # Update the total allowed and infected counts
+                episode_allowed.append(sum(info.get('allowed', [])))  # Sum all courses' allowed students
+                episode_infected.append(sum(info.get('infected', [])))
                 new_value = (1 - self.learning_rate) * old_value + self.learning_rate * (
                         reward + self.discount_factor * next_max)
                 self.q_table[state_idx, action_idx] = new_value
@@ -396,10 +434,28 @@ class QLearningAgent:
                 'space_complexity': self.q_table.nbytes
             }
             writer.writerow(metrics)
+            wandb.log({'cumulative_reward': total_reward})
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
+            e_mean_allowed = sum(episode_allowed) / len(episode_allowed)
+            e_mean_infected = sum(episode_infected) / len(episode_infected)
+            allowed_means_per_episode.append(e_mean_allowed)
+            infected_means_per_episode.append(e_mean_infected)
+            # Increment the episode count
+
 
         csvfile.close()
         print("Training complete.")
+        # Calculate the means for allowed and infected
+        mean_allowed = round(sum(allowed_means_per_episode) / len(allowed_means_per_episode))
+        mean_infected = round(sum(infected_means_per_episode) / len(infected_means_per_episode))
+
+
+        # Save the results in a separate CSV file
+        summary_file_path = os.path.join(self.results_subdirectory, 'mean_allowed_infected.csv')
+        with open(summary_file_path, 'w', newline='') as summary_csvfile:
+            summary_writer = csv.DictWriter(summary_csvfile, fieldnames=['mean_allowed', 'mean_infected'])
+            summary_writer.writeheader()
+            summary_writer.writerow({'mean_allowed': mean_allowed, 'mean_infected': mean_infected})
         self.save_q_table()
 
         self.save_training_log_to_csv(training_log)
@@ -430,7 +486,261 @@ class QLearningAgent:
 
         print(f"Training log saved to {csv_file_path}")
 
-    def evaluate(self, run_name, num_episodes=1, alpha=0.5, csv_path=None):
+    def identify_safety_set(self, allowed_values_over_time, infected_values_over_time, x, y, z,
+                            evaluation_subdirectory):
+        """Identify and plot the safety set based on constraints."""
+        # Ensure infected_values_over_time contains only numeric values
+        infected_values_over_time = [val[0] if isinstance(val, (list, tuple)) else val for val in
+                                     infected_values_over_time]
+
+        # Determine safety boundaries
+        safe_infection_values = [val for val in infected_values_over_time if val <= x]
+        safe_attendance_values = [val for val in allowed_values_over_time if val <= y]
+
+        # Calculate the percentage of time spent in safe regions
+        infection_safety_percentage = (len(safe_infection_values) / len(infected_values_over_time)) * 100
+        attendance_safety_percentage = (len(safe_attendance_values) / len(allowed_values_over_time)) * 100
+
+        # Save the safety percentages
+        with open(os.path.join(evaluation_subdirectory, 'safety_set.txt'), 'w') as f:
+            f.write(f"Safety Percentage for Infections <= {x}: {infection_safety_percentage}%\n")
+            f.write(f"Safety Percentage for Attendance <= {y}: {attendance_safety_percentage}%\n")
+
+        # Plot the safety set
+        plt.figure(figsize=(10, 6))
+        plt.scatter(allowed_values_over_time, infected_values_over_time, color='blue', label='State Points')
+        plt.axhline(y=x, color='red', linestyle='--', label=f'Infection Threshold (x={x})')
+        plt.axvline(x=y, color='green', linestyle='--', label=f'Attendance Threshold (y={y})')
+        plt.xlabel('Allowed Students')
+        plt.ylabel('Infected Individuals')
+        plt.legend()
+        plt.title('Safety Set Identification')
+        plt.grid(True)
+        plt.savefig(os.path.join(evaluation_subdirectory, 'safety_set.png'))
+        plt.show()
+
+        return infection_safety_percentage >= (100 - z), attendance_safety_percentage >= (100 - z)
+
+    def construct_cbf(self, allowed_values_over_time, infected_values_over_time, evaluation_subdirectory, x, y):
+        """Construct and save the Control Barrier Function (CBF) based on the safety set."""
+        # Define the CBFs
+        B1 = lambda s: x - s[1][0] if isinstance(s[1], (list, tuple)) else x - s[1]  # Safety for infections
+        B2 = lambda s: y - s[0]  # Safety for attendance
+
+        # Save the CBF equations
+        with open(os.path.join(evaluation_subdirectory, 'cbf.txt'), 'w') as f:
+            f.write(f"CBF for Infections: B1(s) = {x} - Infected Individuals\n")
+            f.write(f"CBF for Attendance: B2(s) = {y} - Allowed Students\n")
+
+        return B1, B2
+
+    def verify_forward_invariance(self, B1, B2, allowed_values_over_time, infected_values_over_time,
+                                  evaluation_subdirectory):
+        """Verify forward invariance using the constructed CBFs."""
+        is_invariant = True
+        for i in range(len(allowed_values_over_time) - 1):
+            s_t = [allowed_values_over_time[i], infected_values_over_time[i]]
+            s_t_plus_1 = [allowed_values_over_time[i + 1], infected_values_over_time[i + 1]]
+
+            # Calculate derivatives with correct unpacking
+            dB1_dt = B1(s_t_plus_1) - B1(s_t)
+            dB2_dt = B2(s_t_plus_1) - B2(s_t)
+
+            if not (dB1_dt >= 0 and dB2_dt >= 0):
+                is_invariant = False
+                break
+
+        # Save the verification result
+        with open(os.path.join(evaluation_subdirectory, 'cbf_verification.txt'), 'w') as f:
+            if is_invariant:
+                f.write("The forward invariance of the system is verified using the constructed CBFs.\n")
+            else:
+                f.write("The system is not forward invariant based on the constructed CBFs.\n")
+
+        return is_invariant
+
+    def extract_features(self, allowed_values_over_time, infected_values_over_time):
+        """Extract features for constructing the Lyapunov function."""
+        features = []
+        for i in range(len(allowed_values_over_time)):
+            features.append([allowed_values_over_time[i], infected_values_over_time[i]])
+        return features
+
+    def flatten_features(self, feature):
+        if isinstance(feature, (list, tuple)):
+            flattened_feature = [item for sublist in feature for item in
+                                 (sublist if isinstance(sublist, (list, tuple)) else [sublist])]
+        else:
+            flattened_feature = [feature]  # Handle the case where feature is a single scalar
+
+        # Ensure the flattened feature is a 3-element list for use in the neural network
+        if len(flattened_feature) > 3:
+            flattened_feature = flattened_feature[:3]  # Truncate if there are more than 3 elements
+        elif len(flattened_feature) < 3:
+            flattened_feature.extend(
+                [0] * (3 - len(flattened_feature)))  # Pad with zeros if there are fewer than 3 elements
+
+        return flattened_feature
+
+    def construct_lyapunov_function(self, features, evaluation_subdirectory):
+        """Construct and save the Lyapunov function based on the learned parameters."""
+        # Initialize the neural network (as per previous instructions)
+        model = torch.nn.Sequential(
+            torch.nn.Linear(3, 10),
+            torch.nn.ReLU(),
+            torch.nn.Linear(10, 1)
+        )
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        loss_values = []
+        epochs = 100
+
+        # Flatten features
+        flattened_features = self.flatten_features(features)
+
+        try:
+            features_tensor = torch.tensor(flattened_features, dtype=torch.float32)
+            target_tensor = torch.zeros(len(features_tensor), dtype=torch.float32)
+
+            for epoch in range(epochs):
+                optimizer.zero_grad()
+                V_values = model(features_tensor).squeeze()
+
+                loss = torch.nn.functional.mse_loss(V_values, target_tensor)
+                loss.backward()
+                optimizer.step()
+
+                loss_values.append(loss.item())
+                print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss.item()}")  # Debug print for monitoring loss
+
+            # Save the final model parameters (theta) and loss
+            torch.save(model.state_dict(), os.path.join(evaluation_subdirectory, 'lyapunov_model.pth'))
+            with open(os.path.join(evaluation_subdirectory, 'lyapunov_loss_values.txt'), 'w') as f:
+                for i, loss_val in enumerate(loss_values):
+                    f.write(f"Epoch {i}: Loss = {loss_val}\n")
+
+            return model, None, loss_values  # Return the model (instead of V function) and None for theta
+        except Exception as e:
+            print(f"Error in construct_lyapunov_function: {e}")
+            return None, None, None
+
+    def plot_lyapunov_loss(self, loss_values, evaluation_subdirectory):
+        """Plot the loss function of the Lyapunov function training."""
+        plt.figure(figsize=(10, 6))
+        plt.plot(loss_values, label='Loss')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Lyapunov Function Training Loss')
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(os.path.join(evaluation_subdirectory, 'lyapunov_loss_plot.png'))
+        plt.show()
+
+    def plot_lyapunov_function_with_context(self, V, features, method_label, evaluation_subdirectory):
+        """Plot Lyapunov function behavior in DFE and EE regions."""
+
+        # Ensure features are processed correctly before passing to the model
+        V_values = np.array(
+            [V(torch.tensor(self.flatten_features(feature), dtype=torch.float32)).item() for feature in features])
+        delta_V_values = np.diff(V_values)
+
+        # Flatten the feature vector for comparison if it's nested
+        def get_infection_count(feature):
+            if isinstance(feature[1], list):
+                return feature[1][0]  # Assumes the infection count is the first element of the second list
+            return feature[1]
+
+        # Identify indices based on the infection count
+        dfe_indices = [i for i, feature in enumerate(features[:-1]) if
+                       get_infection_count(feature) == 0]  # Infected = 0 for DFE
+        ee_indices = [i for i, feature in enumerate(features[:-1]) if
+                      get_infection_count(feature) > 0]  # Infected > 0 for EE
+
+        plt.figure(figsize=(10, 6))
+
+        plt.scatter(V_values[dfe_indices], delta_V_values[dfe_indices], color='blue', s=5,
+                    label='DFE region (Infected = 0)')
+        plt.scatter(V_values[ee_indices], delta_V_values[ee_indices], color='red', s=5,
+                    label='EE region (Infected > 0)')
+        plt.axhline(y=0, color='black', linestyle='--', label=r'$\Delta V = 0$')
+
+        plt.xlabel('Lyapunov Function Value $V$')
+        plt.ylabel(r'$\Delta V$')
+        plt.title(f'Lyapunov Function Behavior in DFE and EE Regions\nMethod: {method_label}')
+        plt.legend()
+        plt.grid(True)
+        plt.xlim(left=np.min(V_values) - 10, right=np.max(V_values) + 10)
+        plt.ylim(bottom=np.min(delta_V_values) - 10, top=np.max(delta_V_values) + 10)
+        plt.tight_layout()
+        plt.savefig(os.path.join(evaluation_subdirectory, f'lyapunov_function_with_context_{method_label}.png'))
+        plt.show()
+
+    def verify_lyapunov_stability(self, V, theta, features, evaluation_subdirectory):
+        """Verify the stochastic stability using the Lyapunov function in both DFE and EE regions."""
+        dfe_stable = True
+        ee_stable = True
+
+        def flatten_feature(feature):
+            """Flatten the feature list if it's nested and ensure it has 3 elements."""
+            flattened_feature = [item for sublist in feature for item in
+                                 (sublist if isinstance(sublist, list) else [sublist])]
+            if len(flattened_feature) > 3:
+                flattened_feature = flattened_feature[:3]  # Truncate to the first 3 elements
+            print(f"Selected relevant features: {flattened_feature}")
+            return flattened_feature
+
+        for i in range(len(features) - 1):
+            # Flatten the features and convert them to tensors
+            flattened_feature = flatten_feature(features[i])
+            flattened_next_feature = flatten_feature(features[i + 1])
+
+            print(f"Flattened feature (current): {flattened_feature}")
+            print(f"Flattened feature (next): {flattened_next_feature}")
+
+            feature_tensor = torch.tensor(flattened_feature, dtype=torch.float32)
+            next_feature_tensor = torch.tensor(flattened_next_feature, dtype=torch.float32)
+
+            print(f"Feature tensor (current): {feature_tensor}")
+            print(f"Next feature tensor (next): {next_feature_tensor}")
+
+            # Pass the tensor through the neural network
+            try:
+                V_t = V(feature_tensor)
+                V_t_plus_1 = V(next_feature_tensor)
+                delta_V = V_t_plus_1 - V_t
+
+                print(f"V_t: {V_t}, V_t_plus_1: {V_t_plus_1}, delta_V: {delta_V}")
+
+                if features[i][1] == 0:  # DFE region
+                    if delta_V.item() > 0:  # .item() to get the scalar value
+                        dfe_stable = False
+                else:  # EE region
+                    if delta_V.item() > 0:  # .item() to get the scalar value
+                        ee_stable = False
+            except Exception as e:
+                print(f"Error during V function evaluation: {e}")
+                raise
+
+        # Save the verification result
+        with open(os.path.join(evaluation_subdirectory, 'lyapunov_verification.txt'), 'w') as f:
+            if dfe_stable:
+                f.write(
+                    "The system is stochastically stable in the Disease-Free Equilibrium (DFE) region based on the Lyapunov function.\n")
+            else:
+                f.write(
+                    "The system is not stochastically stable in the Disease-Free Equilibrium (DFE) region based on the Lyapunov function.\n")
+
+            if ee_stable:
+                f.write(
+                    "The system is stochastically stable in the Endemic Equilibrium (EE) region based on the Lyapunov function.\n")
+            else:
+                f.write(
+                    "The system is not stochastically stable in the Endemic Equilibrium (EE) region based on the Lyapunov function.\n")
+
+        return dfe_stable, ee_stable
+
+    def evaluate(self, run_name, num_episodes=1, alpha=0.5, csv_path=None, x=10, y=50, z=95):
         policy_dir = self.shared_config['directories']['policy_directory']
         q_table_path = os.path.join(policy_dir, f'q_table_{run_name}.npy')
         results_directory = self.results_subdirectory
@@ -442,10 +752,7 @@ class QLearningAgent:
         print(f"Loaded Q-table from {q_table_path}")
 
         total_rewards = []
-        allowed_values_over_time = []
-        infected_values_over_time = []
 
-        # Prepare the CSV file for writing
         evaluation_subdirectory = os.path.join(results_directory, run_name)
         os.makedirs(evaluation_subdirectory, exist_ok=True)
         csv_file_path = os.path.join(evaluation_subdirectory, f'evaluation_metrics_{run_name}.csv')
@@ -457,7 +764,7 @@ class QLearningAgent:
 
         with open(csv_file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Episode', 'Step', 'State', 'Action', 'Total Reward'])
+            writer.writerow(['Episode', 'Step', 'State', 'Action', 'Community Risk', 'Total Reward'])
 
             for episode in range(num_episodes):
                 state, _ = self.env.reset()
@@ -467,27 +774,28 @@ class QLearningAgent:
                 total_reward = 0
                 step = 0
 
-                # Initialize plotting lists with the initial state
-                allowed_values_over_time.append(0)  # No action taken at the initial state
-                infected_values_over_time.append(c_state[0] * 10)  # Scale from 0-10 to 0-100
+                allowed_values_over_time = []
+                infected_values_over_time = [20]  # Assuming an initial infection count
 
                 while not terminated:
                     action = self._policy('test', c_state)
-                    print('State:', c_state)
-                    c_list_action = [i * 50 for i in action]  # scale 0, 1, 2 to 0, 50, 100
+                    # print('State:', c_state)
+                    c_list_action = [i * 50 for i in action]
                     action_alpha_list = [*c_list_action, alpha]
                     next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
                     c_state = next_state
                     total_reward += reward
 
-                    # Write the step's total reward to the CSV file
-                    writer.writerow([episode + 1, step + 1, c_state[0] * 10, c_list_action[0], total_reward])
-                    step += 1
+                    writer.writerow(
+                        [episode + 1, step + 1, info['continuous_state'], c_list_action[0], info['community_risk'],
+                         reward]
+                    )
 
-                    # Collect data for plotting
-                    if episode == 0:  # Only collect data for the first episode for simplicity
+                    if episode == 0:
                         allowed_values_over_time.append(c_list_action[0])
-                        infected_values_over_time.append(c_state[0] * 10)  # Scale from 0-10 to 0-100
+                        infected_values_over_time.append(info['continuous_state'])
+
+                    step += 1
 
                 total_rewards.append(total_reward)
                 print(f"Episode {episode + 1}: Total Reward = {total_reward}")
@@ -495,43 +803,69 @@ class QLearningAgent:
         avg_reward = np.mean(total_rewards)
         print(f"Average Reward over {num_episodes} episodes: {avg_reward}")
 
-        # Plotting
+        # Ensure all arrays have the same length
+        min_length = min(len(allowed_values_over_time), len(infected_values_over_time), len(self.community_risk_values))
+        allowed_values_over_time = allowed_values_over_time[:min_length]
+        infected_values_over_time = infected_values_over_time[:min_length]
+        community_risk_values = self.community_risk_values[:min_length]
+
+        # Create weeks array
+        weeks = range(1, min_length + 1)
+
+        # Identify the safety set
+        is_safe_infection, is_safe_attendance = self.identify_safety_set(
+            allowed_values_over_time, infected_values_over_time, x, y, z, evaluation_subdirectory
+        )
+
+        # Construct CBFs
+        B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time, evaluation_subdirectory, x, y)
+
+        # Verify forward invariance
+        is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time, infected_values_over_time,
+                                                      evaluation_subdirectory)
+
+        # Construct and verify Lyapunov function for stochastic stability
+        features = list(zip(allowed_values_over_time, infected_values_over_time, community_risk_values))
+
+        # Unpack features before passing to Lyapunov function
+        unpacked_features = [(a, i, c) for (a, i, c) in features]
+
+        # Construct the Lyapunov function and get the loss values
+        V, theta, loss_values = self.construct_lyapunov_function(unpacked_features, evaluation_subdirectory)
+
+        # Plot the Lyapunov loss function
+        self.plot_lyapunov_loss(loss_values, evaluation_subdirectory)
+        self.verify_lyapunov_stability(V, theta, unpacked_features, evaluation_subdirectory)
+
+        # Plot Lyapunov function with context
+        # Plot the Lyapunov function with context
+        self.plot_lyapunov_function_with_context(V, unpacked_features, "Q-Learning Evaluation", evaluation_subdirectory)
+
+        # Plotting for evaluation
+        sns.set(style="whitegrid")
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
 
-        # Subplot 1: Community Risk and Allowed Values
+        # Subplot 1: Community Risk
+        sns.lineplot(x=range(1, len(self.community_risk_values) + 1), y=self.community_risk_values,
+                     marker='s', linestyle='--', color='darkgreen', linewidth=2.5, ax=ax1)
         ax1.set_xlabel('Week')
-        ax1.set_ylabel('Community Risk', color='tab:green')
-        ax1.plot(range(1, len(self.community_risk_values) + 1), self.community_risk_values, marker='s', linestyle='--',
-                 color='tab:green', label='Community Risk')
-        ax1.tick_params(axis='y', labelcolor='tab:green')
+        ax1.set_ylabel('Community Risk', color='darkgreen')
+        ax1.tick_params(axis='y', labelcolor='darkgreen')
 
-        ax1b = ax1.twinx()
-        ax1b.set_ylabel('Allowed Values', color='tab:orange')
-        ax1b.bar(range(1, len(allowed_values_over_time) + 1), allowed_values_over_time, color='tab:orange', alpha=0.6,
-                 width=0.4, align='center', label='Allowed')
-        ax1b.tick_params(axis='y', labelcolor='tab:orange')
+        # Subplot 2: Allowed and Infected Values
+        bar_width = 0.4  # Set a standard bar width
+        weeks_infected = [w + bar_width for w in weeks]
 
-        ax1.legend(loc='upper left')
-        ax1b.legend(loc='upper right')
+        ax2.bar(weeks, allowed_values_over_time, width=bar_width,
+                color='blue', alpha=0.6, align='center', label='Allowed')
+        infected_values_over_time = [pair[0] if isinstance(pair, (list, tuple)) else pair for pair in
+                                     infected_values_over_time]
+        ax2.bar(weeks_infected, infected_values_over_time, width=bar_width,
+                color='red', alpha=0.6, align='center', label='Infected')
 
-        # Subplot 2: Infected Students Over Time
         ax2.set_xlabel('Week')
-        ax2.set_ylabel('Number of Infected Students', color='tab:blue')
-        ax2.plot(range(1, len(infected_values_over_time) + 1), infected_values_over_time, marker='o', linestyle='-',
-                 color='tab:blue', label='Infected')
-        ax2.tick_params(axis='y', labelcolor='tab:blue')
-
+        ax2.set_ylabel('Allowed and Infected Values')
         ax2.legend(loc='upper left')
-
-        # Set x-ticks to show fewer labels and label weeks from 1 to n
-        ticks = range(0, len(self.community_risk_values),
-                      max(1, len(self.community_risk_values) // 10))  # Show approximately 10 ticks
-        labels = [f'Week {i + 1}' for i in ticks]
-
-        ax1.set_xticks(ticks)
-        ax1.set_xticklabels(labels, rotation=45)
-        ax2.set_xticks(ticks)
-        ax2.set_xticklabels(labels, rotation=45)
 
         # Adjust layout and save the plot
         plt.tight_layout()
@@ -539,6 +873,131 @@ class QLearningAgent:
         plt.show()
 
         return avg_reward
+
+        # def evaluate(self, run_name, num_episodes=1, alpha=0.5, csv_path=None):
+    #     policy_dir = self.shared_config['directories']['policy_directory']
+    #     q_table_path = os.path.join(policy_dir, f'q_table_{run_name}.npy')
+    #     results_directory = self.results_subdirectory
+    #
+    #     if not os.path.exists(q_table_path):
+    #         raise FileNotFoundError(f"Q-table file not found in {q_table_path}")
+    #
+    #     self.q_table = np.load(q_table_path)
+    #     print(f"Loaded Q-table from {q_table_path}")
+    #
+    #     total_rewards = []
+    #     # allowed_values_over_time = []
+    #     # infected_values_over_time = []
+    #
+    #     evaluation_subdirectory = os.path.join(results_directory, run_name)
+    #     os.makedirs(evaluation_subdirectory, exist_ok=True)
+    #     csv_file_path = os.path.join(evaluation_subdirectory, f'evaluation_metrics_{run_name}.csv')
+    #
+    #     if csv_path:
+    #         self.community_risk_values = self.read_community_risk_from_csv(csv_path)
+    #         self.max_weeks = len(self.community_risk_values)
+    #         print(f"Community Risk Values: {self.community_risk_values}")
+    #
+    #     with open(csv_file_path, mode='w', newline='') as file:
+    #         writer = csv.writer(file)
+    #         writer.writerow(['Episode', 'Step', 'State', 'Action', 'Community Risk', 'Total Reward'])
+    #
+    #         for episode in range(num_episodes):
+    #             state, _ = self.env.reset()
+    #             print(f"Initial state for episode {episode + 1}: {state}")
+    #             c_state = state
+    #             terminated = False
+    #             total_reward = 0
+    #             step = 0
+    #
+    #             allowed_values_over_time = []
+    #             infected_values_over_time = [20]
+    #
+    #             while not terminated:
+    #                 action = self._policy('test', c_state)
+    #                 print('State:', c_state)
+    #                 c_list_action = [i * 50 for i in action]
+    #                 action_alpha_list = [*c_list_action, alpha]
+    #                 next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
+    #                 c_state = next_state
+    #                 total_reward += reward
+    #
+    #                 writer.writerow(
+    #                     [episode + 1, step + 1, info['continuous_state'], c_list_action[0], info['community_risk'], reward]
+    #                 )
+    #
+    #                 if episode == 0:
+    #                     allowed_values_over_time.append(c_list_action[0])
+    #                     infected_values_over_time.append(info['continuous_state'])
+    #
+    #                 step += 1
+    #
+    #             total_rewards.append(total_reward)
+    #             print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+    #
+    #     avg_reward = np.mean(total_rewards)
+    #     print(f"Average Reward over {num_episodes} episodes: {avg_reward}")
+    #     # Debug prints
+    #     print(f"Length of allowed_values_over_time: {len(allowed_values_over_time)}")
+    #     print(f"Length of infected_values_over_time: {len(infected_values_over_time)}")
+    #     print(f"Length of self.community_risk_values: {len(self.community_risk_values)}")
+    #
+    #     # Ensure all arrays have the same length
+    #     min_length = min(len(allowed_values_over_time), len(infected_values_over_time), len(self.community_risk_values))
+    #     allowed_values_over_time = allowed_values_over_time[:min_length]
+    #     infected_values_over_time = infected_values_over_time[:min_length]
+    #     community_risk_values = self.community_risk_values[:min_length]
+    #
+    #     # Create weeks array
+    #     weeks = range(1, min_length + 1)
+    #
+    #     sns.set(style="whitegrid")
+    #
+    #     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
+    #
+    #     # Subplot 1: Community Risk
+    #     sns.lineplot(x=range(1, len(self.community_risk_values) + 1), y=self.community_risk_values,
+    #                  marker='s', linestyle='--', color='darkgreen', linewidth=2.5, ax=ax1)
+    #     ax1.set_xlabel('Week')
+    #     ax1.set_ylabel('Community Risk', color='darkgreen')
+    #     ax1.tick_params(axis='y', labelcolor='darkgreen')
+    #
+    #     # Subplot 2: Allowed and Infected Values
+    #     # Subplot 2: Allowed and Infected Values
+    #     bar_width = 0.4  # Set a standard bar width
+    #
+    #     # Adjust the positions slightly for the second bar plot
+    #
+    #     ax2.bar(weeks, allowed_values_over_time, width=bar_width,
+    #             color='blue', alpha=0.6, align='center', label='Allowed')
+    #     infected_values_over_time = [pair[0] if isinstance(pair, (list, tuple)) else pair for pair in infected_values_over_time]
+    #
+    #
+    #     # Subplot 2: Allowed and Infected Values
+    #     bar_width = 0.4  # Set a standard bar width
+    #
+    #     # Adjust the positions slightly for the second bar plot
+    #     weeks_infected = [w + bar_width for w in weeks]
+    #
+    #     ax2.bar(weeks, allowed_values_over_time, width=bar_width,
+    #             color='blue', alpha=0.6, align='center', label='Allowed')
+    #     ax2.bar(weeks_infected, infected_values_over_time, width=bar_width,
+    #             color='red', alpha=0.6, align='center', label='Infected')
+    #
+    #     ax2.set_xlabel('Week')
+    #     ax2.set_ylabel('Allowed and Infected Values')
+    #     ax2.legend(loc='upper left')
+    #
+    #     ax2.set_xlabel('Week')
+    #     ax2.set_ylabel('Allowed and Infected Values')
+    #     ax2.legend(loc='upper left')
+    #
+    #     # Adjust layout and save the plot
+    #     plt.tight_layout()
+    #     plt.savefig(os.path.join(evaluation_subdirectory, f"evaluation_plot_{run_name}.png"))
+    #     plt.show()
+    #
+    #     return avg_reward
 
     def moving_average(self, data, window_size):
         return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
@@ -695,10 +1154,10 @@ class QLearningAgent:
         sns.set_style("whitegrid")
 
         # Plot mean performance
-        sns.lineplot(x=episodes_smooth, y=means_smooth, label='Mean Performance', color='blue')
+        sns.lineplot(x=episodes_smooth, y=means_smooth, label='Mean Performance', color='orange')
 
         # Fill between for confidence interval
-        plt.fill_between(episodes_smooth, lower_bounds_smooth, upper_bounds_smooth, color='lightblue', alpha=0.2,
+        plt.fill_between(episodes_smooth, lower_bounds_smooth, upper_bounds_smooth, color='#FFD580', alpha=0.2,
                          label=f'Confidence Interval (α={alpha})')
 
         plt.title(f'Confidence Interval Curve for Mean Performance')

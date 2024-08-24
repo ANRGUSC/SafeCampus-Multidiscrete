@@ -1,10 +1,10 @@
 agent:
-  learning_rate: 0.01 # 1.0use 0.3 for linear decay, 0.0001 for exponential decay
+  learning_rate: 0.001
   discount_factor: 0.1
-  max_episodes: 10000 # 5000 for single classroom env
+  max_episodes: 5000
   exploration_rate: 1.0
-  min_exploration_rate: 0.000001 # for exponential decay linear is 0.0001, 0.000001 for linear
-  exploration_decay_rate: 0.00001 # for exponential decay linear is 0.9999, 0.001 for linear
+  min_exploration_rate: 0.0001
+  exploration_decay_rate: 0.00001
   learning_rate_decay: 0.9999
   min_learning_rate: 0.00001
   checkpoint_interval: 100 # Save model checkpoint after every 100 episodes

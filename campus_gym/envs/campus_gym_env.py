@@ -94,30 +94,39 @@ class CampusGymEnv(gym.Env):
 
     def step(self, action):
         # For Tabular Q-Learning
-        alpha = action.pop()
-        self.campus_state.update_with_action(action)
-        observation = np.array(convert_actions_to_discrete(self.campus_state.get_student_status()))
+        # alpha = action.pop()
+        # self.campus_state.update_with_action(action)
+        # observation = np.array(convert_actions_to_discrete(self.campus_state.get_student_status()))
 
         # For DQN
-        # alpha = action[1]
-        # self.campus_state.update_with_action(action[0])
-        # observation = np.array(self.campus_state.get_student_status())
+        alpha = action[1]
+        #
+        # # Update the state with the action
+        self.campus_state.update_with_action(action[0])
+        #
+        # # Get the updated state after the action
+        observation = np.array(self.campus_state.get_student_status())
 
+        # Calculate the reward using the post-action state
         reward = self.campus_state.get_reward(alpha)
+
+        # Determine if the episode is done
         done = self.campus_state.is_episode_done()
+
         info = {
             "allowed": self.campus_state.allowed_students_per_course,
             "infected": self.campus_state.student_status,
             "community_risk": self.campus_state.community_risk,
-            "reward": reward
+            "reward": reward,
+            "continuous_state": self.campus_state.get_student_status()
         }
         return observation, reward, done, False, info
 
     def reset(self):
         state = self.campus_state.reset()
-        discrete_state = convert_actions_to_discrete(state)
-        return np.array(discrete_state), {}
-        # return np.array(state), {}
+        # discrete_state = convert_actions_to_discrete(state)
+        # return np.array(discrete_state), {}
+        return np.array(state), {}
     def render(self, mode='bot'):
         weekly_infected_students = int(sum(self.campus_state.weekly_infected_students)) / len(self.campus_state.weekly_infected_students)
         allowed_students_per_course = self.campus_state.allowed_students_per_course

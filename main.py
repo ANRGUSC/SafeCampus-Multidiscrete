@@ -146,8 +146,8 @@ def run_evaluation(env, shared_config_path, agent_type, alpha, run_name, csv_pat
     agent = AgentClass(env, run_name, shared_config_path=shared_config_path, agent_config_path=agent_config_path, csv_path=csv_path)
 
     # Run the evaluation
-    avg_reward = agent.evaluate(run_name=run_name, alpha=alpha, csv_path=csv_path)
-    print(f"Average Reward for {agent_type} agent: {avg_reward}")
+    cumulative_reward = agent.evaluate(run_name=run_name, alpha=alpha, csv_path=csv_path)
+    print(f"Cumulative Reward for {agent_type} agent: {cumulative_reward}")
 
 
 
@@ -194,7 +194,7 @@ def main():
     parser.add_argument('--alpha', type=float, default=0.6, help='Reward parameter alpha.')
     parser.add_argument('--alpha_t', type=float, default=0.05, help='Alpha value for tolerance interval.')
     parser.add_argument('--beta_t', type=float, default=0.9, help='Beta value for tolerance interval.')
-    parser.add_argument('--num_runs', type=int, default=20, help='Number of runs for tolerance interval.')
+    parser.add_argument('--num_runs', type=int, default=10, help='Number of runs for tolerance interval.')
     parser.add_argument('--agent_type', default='q_learning', help='Type of agent to use.')
     parser.add_argument('--run_name', default=None, help='Unique name for the training run or evaluation.')
     parser.add_argument('--read_from_csv', action='store_true', help='Read community risk values from CSV.')

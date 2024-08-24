@@ -28,11 +28,11 @@ def visualize_all_states(model, all_states, run_name, num_courses, max_episodes,
                          students_per_course):
     method_name = "viz all states"
     file_paths = []
-    colors = ['#a0b1ba', '#00b000', '#009ade']  # Light Red, Light Blue, Green
+    colors = ['blue', 'green', 'red']  # Light Red, Light Blue, Green
     color_map = {0: colors[0], 1: colors[1], 2: colors[2]}
 
     fig, axes = plt.subplots(1, num_courses, figsize=(5 * num_courses, 5), squeeze=False)
-    fig.suptitle(f'{run_name}', fontsize=8)
+    fig.suptitle(f'DQN-{alpha})', fontsize=16)
 
     for course in range(num_courses):
         x_values = np.linspace(0, 1, 10)  # 10 values for community risk
@@ -56,7 +56,7 @@ def visualize_all_states(model, all_states, run_name, num_courses, max_episodes,
 
         ax.set_xlabel('Community Risk')
         ax.set_ylabel(f'Infected students in Course {course + 1}')
-        ax.set_title(f'Course {course + 1}\nTotal Students: {students_per_course[course]}')
+        # ax.set_title(f'Course {course + 1}\nTotal Students: {students_per_course[course]}')
         ax.grid(False)
 
         # Add padding to y-axis

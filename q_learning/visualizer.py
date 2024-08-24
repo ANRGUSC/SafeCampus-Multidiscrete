@@ -25,11 +25,11 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
     num_courses = len(students_per_course)
 
     file_paths = []
-    colors = ['blue', 'orange', 'red']  # Light Red, Light Blue, Light Green
+    colors = ['blue', 'green', 'red']  # Light Red, Light Blue, Light Green
     color_map = {0: colors[0], 1: colors[1], 2: colors[2]}
 
     fig, axes = plt.subplots(1, num_courses, figsize=(5 * num_courses, 5), squeeze=False)
-    fig.suptitle(f'{run_name})', fontsize=16)
+    fig.suptitle(f'Tabular-Q-{alpha})', fontsize=16)
 
     for course in range(num_courses):
         actions = {}
