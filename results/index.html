@@ -1,0 +1,802 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Project documentation for Your Project">
+      
+      
+        <meta name="author" content="Developed by Autonomous Networks Research Group">
+      
+      
+        <link rel="canonical" href="https://your-github-username.github.io/your-repo-name/results/">
+      
+      
+        <link rel="prev" href="../usage/">
+      
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.3">
+    
+    
+      
+        <title>Results - SafeCampus</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.50c56a3b.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#results" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="SafeCampus" class="md-header__button md-logo" aria-label="SafeCampus" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SafeCampus
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Results
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="SafeCampus" class="md-nav__button md-logo" aria-label="SafeCampus" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    SafeCampus
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Usage
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Results
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Results
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-viewing-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Viewing Results
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Viewing Results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-weights-biases-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.1. Weights &amp; Biases Integration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.1. Weights & Biases Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-metrics-logged" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.1.1. Metrics Logged
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-local-csv-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.2. Local CSV Files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-visualizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Visualizations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Visualizations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-tolerance-interval-curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. Tolerance Interval Curve
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-confidence-interval-curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. Confidence Interval Curve
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-safety-set-identification" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Safety Set Identification
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-lyapunov-function-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. Lyapunov Function Behavior
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-transition-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.5. Transition Matrix
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-safety-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Safety Analysis
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Safety Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-safety-set-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1. Safety Set Conditions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-control-barrier-functions-cbfs" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2. Control Barrier Functions (CBFs)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-final-results-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Final Results Summary
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-viewing-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Viewing Results
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Viewing Results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-weights-biases-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.1. Weights &amp; Biases Integration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.1. Weights & Biases Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-metrics-logged" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.1.1. Metrics Logged
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-local-csv-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      1.2. Local CSV Files
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-visualizations" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Visualizations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Visualizations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-tolerance-interval-curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.1. Tolerance Interval Curve
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-confidence-interval-curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.2. Confidence Interval Curve
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-safety-set-identification" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.3. Safety Set Identification
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-lyapunov-function-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.4. Lyapunov Function Behavior
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-transition-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.5. Transition Matrix
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-safety-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Safety Analysis
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Safety Analysis">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-safety-set-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.1. Safety Set Conditions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-control-barrier-functions-cbfs" class="md-nav__link">
+    <span class="md-ellipsis">
+      3.2. Control Barrier Functions (CBFs)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-final-results-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Final Results Summary
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+<h1 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h1>
+<p>This section provides detailed information on how to view, analyze, and interpret the results generated by the project. The results include training metrics, evaluation metrics, visualizations, and safety analysis.</p>
+<h2 id="1-viewing-results">1. Viewing Results<a class="headerlink" href="#1-viewing-results" title="Permanent link">&para;</a></h2>
+<h3 id="11-weights-biases-integration">1.1. Weights &amp; Biases Integration<a class="headerlink" href="#11-weights-biases-integration" title="Permanent link">&para;</a></h3>
+<p>The project uses <a href="https://wandb.ai/">Weights &amp; Biases</a> (W&amp;B) to log and visualize training and evaluation metrics. You can view the results by logging into your W&amp;B account and navigating to the project dashboard.</p>
+<h4 id="111-metrics-logged">1.1.1. Metrics Logged<a class="headerlink" href="#111-metrics-logged" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>Cumulative Reward</strong>: The total reward accumulated over the course of an episode.</li>
+<li><strong>Average Reward</strong>: The mean reward per episode.</li>
+<li><strong>Discounted Reward</strong>: The reward calculated with a discount factor applied to future rewards.</li>
+<li><strong>Sample Efficiency</strong>: The number of unique states visited during an episode.</li>
+<li><strong>Policy Entropy</strong>: The entropy of the policy, representing the uncertainty in action selection.</li>
+<li><strong>Space Complexity</strong>: The total number of parameters in the model.</li>
+</ul>
+<h3 id="12-local-csv-files">1.2. Local CSV Files<a class="headerlink" href="#12-local-csv-files" title="Permanent link">&para;</a></h3>
+<p>For each training and evaluation run, metrics are also saved locally as CSV files in the <code>results</code> directory. The following CSV files are generated:</p>
+<ul>
+<li><strong><code>training_metrics_&lt;run_name&gt;.csv</code></strong>: Contains training metrics for each episode.</li>
+<li><strong><code>evaluation_metrics_&lt;run_name&gt;.csv</code></strong>: Contains evaluation metrics for each step within an episode.</li>
+<li><strong><code>mean_allowed_infected.csv</code></strong>: Summarizes the mean allowed and infected values across all episodes.</li>
+</ul>
+<h2 id="2-visualizations">2. Visualizations<a class="headerlink" href="#2-visualizations" title="Permanent link">&para;</a></h2>
+<h3 id="21-tolerance-interval-curve">2.1. Tolerance Interval Curve<a class="headerlink" href="#21-tolerance-interval-curve" title="Permanent link">&para;</a></h3>
+<p>The Tolerance Interval Curve shows the range of expected returns within a specified confidence level (<code>alpha</code>) and proportion (<code>beta</code>). This curve helps visualize the performance consistency of the model across different runs.</p>
+<ul>
+<li><strong><code>tolerance_interval_mean.png</code></strong>: The mean performance with the tolerance interval.</li>
+<li><strong><code>tolerance_interval_median.png</code></strong>: The median performance with the tolerance interval.</li>
+</ul>
+<h3 id="22-confidence-interval-curve">2.2. Confidence Interval Curve<a class="headerlink" href="#22-confidence-interval-curve" title="Permanent link">&para;</a></h3>
+<p>The Confidence Interval Curve shows the mean performance of the model with a confidence interval, typically at 95%. This visualization helps assess the reliability of the model's performance.</p>
+<ul>
+<li><strong><code>confidence_interval.png</code></strong>: The confidence interval for mean performance.</li>
+</ul>
+<h3 id="23-safety-set-identification">2.3. Safety Set Identification<a class="headerlink" href="#23-safety-set-identification" title="Permanent link">&para;</a></h3>
+<p>The Safety Set Identification plot shows the states where the model's policy maintains safety constraints, such as keeping the number of infections below a threshold.</p>
+<ul>
+<li><strong><code>safety_set_plot_episode_&lt;run_name&gt;.png</code></strong>: A plot showing the safety set for a specific episode.</li>
+</ul>
+<h3 id="24-lyapunov-function-behavior">2.4. Lyapunov Function Behavior<a class="headerlink" href="#24-lyapunov-function-behavior" title="Permanent link">&para;</a></h3>
+<p>The Lyapunov Function Behavior plots demonstrate the stability of the system, particularly in the Disease-Free Equilibrium (DFE) and Endemic Equilibrium (EE) regions.</p>
+<ul>
+<li><strong><code>lyapunov_loss_plot.png</code></strong>: The loss function during the training of the Lyapunov function.</li>
+<li><strong><code>lyapunov_function_with_context_&lt;method_label&gt;.png</code></strong>: The Lyapunov function behavior with context for DFE and EE regions.</li>
+</ul>
+<h3 id="25-transition-matrix">2.5. Transition Matrix<a class="headerlink" href="#25-transition-matrix" title="Permanent link">&para;</a></h3>
+<p>The Transition Matrix visualizes the probability of transitioning from one state to another based on the community risk values. This matrix is useful for understanding the model's behavior under varying conditions.</p>
+<ul>
+<li><strong><code>transition_matrix_&lt;run_name&gt;.png</code></strong>: The transition probability matrix based on community risk.</li>
+</ul>
+<h2 id="3-safety-analysis">3. Safety Analysis<a class="headerlink" href="#3-safety-analysis" title="Permanent link">&para;</a></h2>
+<h3 id="31-safety-set-conditions">3.1. Safety Set Conditions<a class="headerlink" href="#31-safety-set-conditions" title="Permanent link">&para;</a></h3>
+<p>The safety set conditions are logged in the <code>safety_conditions_&lt;run_name&gt;.csv</code> file. This file contains the following columns:</p>
+<ul>
+<li><strong>Episode</strong>: The episode number.</li>
+<li><strong>Infections &gt; Threshold (%)</strong>: The percentage of time the number of infections exceeded the threshold.</li>
+<li><strong>Safety Condition Met (Infection)</strong>: Indicates whether the infection safety condition was met.</li>
+<li><strong>Allowed Students ≥ Threshold (%)</strong>: The percentage of time the allowed students met or exceeded the threshold.</li>
+<li><strong>Safety Condition Met (Attendance)</strong>: Indicates whether the attendance safety condition was met.</li>
+</ul>
+<h3 id="32-control-barrier-functions-cbfs">3.2. Control Barrier Functions (CBFs)<a class="headerlink" href="#32-control-barrier-functions-cbfs" title="Permanent link">&para;</a></h3>
+<p>The CBFs are used to ensure that the system maintains safety constraints over time. The verification of forward invariance is logged in the <code>cbf_verification.txt</code> file.</p>
+<ul>
+<li><strong>CBF for Infections</strong>: Ensures that the number of infected individuals does not exceed the threshold.</li>
+<li><strong>CBF for Attendance</strong>: Ensures that the number of allowed students meets the required threshold.</li>
+</ul>
+<h2 id="4-final-results-summary">4. Final Results Summary<a class="headerlink" href="#4-final-results-summary" title="Permanent link">&para;</a></h2>
+<p>At the end of the evaluation process, a summary of the final results is saved in the <code>final_results.txt</code> file. This summary includes:</p>
+<ul>
+<li>Cumulative Reward across all episodes</li>
+<li>Average Reward per episode</li>
+<li>Safety condition percentages for infections and attendance</li>
+<li>Forward Invariance verification</li>
+<li>Stability assessment in the DFE and EE regions</li>
+</ul>
+<p>This file provides a quick overview of the model's performance and safety compliance across the entire evaluation period.</p>
+<hr />
+<p>Use the above results and visualizations to assess and refine your model. The combination of metrics, visualizations, and safety analysis will help you understand the model's strengths and weaknesses and guide further development.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.f886a092.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7c377c4.min.js"></script>
+      
+    
+  </body>
+</html>
