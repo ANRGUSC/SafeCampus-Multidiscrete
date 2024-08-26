@@ -431,6 +431,33 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#26-q-table-visualization-q-learning-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.6. Q-Table Visualization (Q-learning only)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-states-visited-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.7. States Visited Visualization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#28-evaluation-results-plot" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.8. Evaluation Results Plot
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -615,6 +642,33 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#26-q-table-visualization-q-learning-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.6. Q-Table Visualization (Q-learning only)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-states-visited-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.7. States Visited Visualization
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#28-evaluation-results-plot" class="md-nav__link">
+    <span class="md-ellipsis">
+      2.8. Evaluation Results Plot
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -698,7 +752,9 @@
 <li><strong><code>evaluation_metrics_&lt;run_name&gt;.csv</code></strong>: Contains evaluation metrics for each step within an episode.</li>
 <li><strong><code>mean_allowed_infected.csv</code></strong>: Summarizes the mean allowed and infected values across all episodes.</li>
 </ul>
+<p>These files can be found in the results subdirectory specific to each run, typically located at <code>&lt;results_directory&gt;/&lt;agent_type&gt;/&lt;run_name&gt;/&lt;timestamp&gt;/</code>.</p>
 <h2 id="2-visualizations">2. Visualizations<a class="headerlink" href="#2-visualizations" title="Permanent link">&para;</a></h2>
+<p>All visualizations are saved in the results subdirectory for each run. The specific path is <code>&lt;results_directory&gt;/&lt;agent_type&gt;/&lt;run_name&gt;/&lt;timestamp&gt;/</code>.</p>
 <h3 id="21-tolerance-interval-curve">2.1. Tolerance Interval Curve<a class="headerlink" href="#21-tolerance-interval-curve" title="Permanent link">&para;</a></h3>
 <p>The Tolerance Interval Curve shows the range of expected returns within a specified confidence level (<code>alpha</code>) and proportion (<code>beta</code>). This curve helps visualize the performance consistency of the model across different runs.</p>
 <ul>
@@ -725,6 +781,21 @@
 <p>The Transition Matrix visualizes the probability of transitioning from one state to another based on the community risk values. This matrix is useful for understanding the model's behavior under varying conditions.</p>
 <ul>
 <li><strong><code>transition_matrix_&lt;run_name&gt;.png</code></strong>: The transition probability matrix based on community risk.</li>
+</ul>
+<h3 id="26-q-table-visualization-q-learning-only">2.6. Q-Table Visualization (Q-learning only)<a class="headerlink" href="#26-q-table-visualization-q-learning-only" title="Permanent link">&para;</a></h3>
+<p>For Q-learning, a heatmap of the Q-table is generated to visualize the learned state-action values.</p>
+<ul>
+<li><strong><code>q_table_heatmap.png</code></strong>: Heatmap visualization of the Q-table.</li>
+</ul>
+<h3 id="27-states-visited-visualization">2.7. States Visited Visualization<a class="headerlink" href="#27-states-visited-visualization" title="Permanent link">&para;</a></h3>
+<p>Heatmaps showing the frequency of visited states during training are generated for both DQN and Q-learning.</p>
+<ul>
+<li>Multiple PNG files with names containing <code>states_visited</code> are generated in the results subdirectory.</li>
+</ul>
+<h3 id="28-evaluation-results-plot">2.8. Evaluation Results Plot<a class="headerlink" href="#28-evaluation-results-plot" title="Permanent link">&para;</a></h3>
+<p>For Q-learning, an evaluation plot is generated showing the allowed students, infected individuals, and community risk over time.</p>
+<ul>
+<li><strong><code>evaluation_plot_&lt;run_name&gt;.png</code></strong>: Plot of evaluation results.</li>
 </ul>
 <h2 id="3-safety-analysis">3. Safety Analysis<a class="headerlink" href="#3-safety-analysis" title="Permanent link">&para;</a></h2>
 <h3 id="31-safety-set-conditions">3.1. Safety Set Conditions<a class="headerlink" href="#31-safety-set-conditions" title="Permanent link">&para;</a></h3>
@@ -753,7 +824,7 @@
 </ul>
 <p>This file provides a quick overview of the model's performance and safety compliance across the entire evaluation period.</p>
 <hr />
-<p>Use the above results and visualizations to assess and refine your model. The combination of metrics, visualizations, and safety analysis will help you understand the model's strengths and weaknesses and guide further development.</p>
+<p>Use the above results and visualizations to assess and refine your model. The combination of metrics, visualizations, and safety analysis will help you understand the model's strengths and weaknesses and guide further development. Remember to check the specific results subdirectory for each run to find all the generated files and visualizations.</p>
 
 
 

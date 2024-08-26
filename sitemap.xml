@@ -11,6 +11,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://your-github-username.github.io/your-repo-name/envirnoment/</loc>
+         <lastmod>2024-08-26</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://your-github-username.github.io/your-repo-name/installation/</loc>
          <lastmod>2024-08-26</lastmod>
          <changefreq>daily</changefreq>

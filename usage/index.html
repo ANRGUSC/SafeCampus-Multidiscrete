@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#usage" class="md-skip">
+        <a href="#running-the-project" class="md-skip">
           Skip to content
         </a>
       
@@ -271,8 +271,6 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
-        
-      
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
           
@@ -301,8 +299,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -311,9 +307,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#training" class="md-nav__link">
+  <a href="#running-the-project" class="md-nav__link">
     <span class="md-ellipsis">
-      Training
+      Running the Project
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
     </span>
   </a>
   
@@ -364,8 +369,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -374,9 +377,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#training" class="md-nav__link">
+  <a href="#running-the-project" class="md-nav__link">
     <span class="md-ellipsis">
-      Training
+      Running the Project
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
     </span>
   </a>
   
@@ -397,12 +409,58 @@
                   
 
 
-<h1 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h1>
-<p>This section explains how to use the project in different modes.</p>
-<h2 id="training">Training<a class="headerlink" href="#training" title="Permanent link">&para;</a></h2>
-<p>To train an agent, use the following command:</p>
-<p>```bash
-python main.py train --agent_type q_learning --alpha 0.8</p>
+  <h1>Usage</h1>
+
+<p>Prepare Community Risk CSV (if applicable)
+If you're planning to use community risk data from a CSV file, ensure it's placed in the appropriate directory and update the <code>csv_path</code> argument when running the script.</p>
+<h2 id="running-the-project">Running the Project<a class="headerlink" href="#running-the-project" title="Permanent link">&para;</a></h2>
+<p>You can run the project in different modes:</p>
+<ol>
+<li>Training:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span>train<span class="w"> </span>--agent_type<span class="w"> </span>q_learning<span class="w"> </span>--alpha<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span>--algorithm<span class="w"> </span>q_learning
+</code></pre></div>
+
+<ol>
+<li>Evaluation:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span><span class="nb">eval</span><span class="w"> </span>--agent_type<span class="w"> </span>q_learning<span class="w"> </span>--alpha<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span>--run_name<span class="w"> </span>your_run_name<span class="w"> </span>--csv_path<span class="w"> </span>path/to/your/csv<span class="w"> </span>--algorithm<span class="w"> </span>q_learning
+</code></pre></div>
+
+<ol>
+<li>Combined Training and Evaluation:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span>train_and_eval<span class="w"> </span>--agent_type<span class="w"> </span>q_learning<span class="w"> </span>--alpha<span class="w"> </span><span class="m">0</span>.8<span class="w"> </span>--csv_path<span class="w"> </span>path/to/your/csv<span class="w"> </span>--algorithm<span class="w"> </span>q_learning
+</code></pre></div>
+
+<ol>
+<li>Hyperparameter Sweep:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span>sweep<span class="w"> </span>--agent_type<span class="w"> </span>q_learning
+</code></pre></div>
+
+<ol>
+<li>Multiple Runs:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span>multi<span class="w"> </span>--agent_type<span class="w"> </span>q_learning<span class="w"> </span>--alpha_t<span class="w"> </span><span class="m">0</span>.05<span class="w"> </span>--beta_t<span class="w"> </span><span class="m">0</span>.9<span class="w"> </span>--num_runs<span class="w"> </span><span class="m">10</span>
+</code></pre></div>
+
+<ol>
+<li>Optuna Optimization:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>main.py<span class="w"> </span>optuna<span class="w"> </span>--agent_type<span class="w"> </span>q_learning
+</code></pre></div>
+
+<p>Replace <code>q_learning</code> with <code>dqn</code> if you want to use the DQN algorithm instead.</p>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<p>If you encounter any issues during installation or running the project, please check the following:</p>
+<ol>
+<li>Ensure all prerequisites are correctly installed.</li>
+<li>Verify that you're in the correct conda environment (<code>conda activate campus_gym</code>).</li>
+<li>Check that all configuration files are properly set up.</li>
+<li>Make sure you have the necessary permissions to read/write in the project directory.</li>
+</ol>
+<p>If problems persist, please open an issue on the GitHub repository with details about the error and your environment.</p>
 
 
 
