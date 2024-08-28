@@ -151,14 +151,8 @@ The Safety Set Identification plot shows the states where the model's policy mai
 
 - **`safety_set_plot_episode_<run_name>.png`**: A plot showing the safety set for a specific episode.
 
-### 2.4. Lyapunov Function Behavior
 
-The Lyapunov Function Behavior plots demonstrate the stability of the system, particularly in the Disease-Free Equilibrium (DFE) and Endemic Equilibrium (EE) regions.
-
-- **`lyapunov_loss_plot.png`**: The loss function during the training of the Lyapunov function.
-- **`lyapunov_function_with_context_<method_label>.png`**: The Lyapunov function behavior with context for DFE and EE regions.
-
-### 2.5. Transition Matrix
+### 2.4. Transition Matrix
 
 The Transition Matrix visualizes the probability of transitioning from one state to another based on the community risk values. This matrix is useful for understanding the model's behavior under varying conditions.
 
