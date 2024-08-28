@@ -4,7 +4,7 @@ import matplotlib.animation as animation
 import os
 
 # Create a directory for the plots
-os.makedirs('control_plots', exist_ok=True)
+os.makedirs('../control_plots', exist_ok=True)
 
 # Parameters
 c_risk = 0.01  # Community risk
