@@ -1,35 +1,33 @@
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
-import seaborn as sns
 import numpy as np
-import wandb
-import scipy.stats as stats
 import pandas as pd
 from tabulate import tabulate
 import seaborn as sns
-from collections import defaultdict
-from itertools import combinations
 import matplotlib.patches as mpatches
+import colorsys
 
+def generate_distinct_colors(n):
+    HSV_tuples = [(x * 1.0 / n, 0.5, 0.95) for x in range(n)]  # Adjusted the brightness for better distinction
+    RGB_tuples = list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
+    return ['#{:02x}{:02x}{:02x}'.format(int(r * 255), int(g * 255), int(b * 255)) for r, g, b in RGB_tuples]
 
 def visualize_all_states(q_table, all_states, states, run_name, max_episodes, alpha, results_subdirectory,
                          students_per_course):
     method_name = "viz all states"
-    # print("students_per_course:", students_per_course)
-    # print("states:", states)
-
-    # Determine the number of dimensions
     state_size = len(states[0])
     num_courses = len(students_per_course)
 
     file_paths = []
-    colors = ['blue', 'green', 'red']  # Light Red, Light Blue, Light Green
-    color_map = {0: colors[0], 1: colors[1], 2: colors[2]}
+
+    # Determine the number of unique actions (for distinct colors)
+    unique_actions = q_table.shape[1] // num_courses
+    colors = generate_distinct_colors(unique_actions)
+    color_map = {i: colors[i] for i in range(unique_actions)}
 
     fig, axes = plt.subplots(1, num_courses, figsize=(5 * num_courses, 5), squeeze=False)
-    fig.suptitle(f'Tabular-Q-{alpha})', fontsize=16)
+    fig.suptitle(f'{run_name}', fontsize=16)
 
     for course in range(num_courses):
         actions = {}
@@ -38,7 +36,7 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
             action = np.argmax(q_table[state_idx])
 
             # Extract course-specific action
-            course_action = action % 3
+            course_action = action % unique_actions
 
             # Key: (infected for this course, community risk)
             infected = state[course]
@@ -59,7 +57,6 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
 
         ax.set_xlabel('Community Risk')
         ax.set_ylabel(f'Infected students in Course {course + 1}')
-        # ax.set_title(f'Course {course + 1}\nTotal Students: {students_per_course[course]}')
         ax.grid(False)  # Remove grid
 
         max_val = students_per_course[course]
@@ -67,10 +64,10 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
         ax.set_ylim(-y_margin, max_val + y_margin)
         ax.set_xlim(-0.05, 1.05)
 
-    # Create a custom legend
-    legend_elements = [mpatches.Patch(facecolor=colors[i], label=f'Allow {i * 50}%') for i in range(3)]
+    # Create a custom legend with arbitrary colors
+    legend_elements = [mpatches.Patch(facecolor=colors[i], label=f'Allow {i * (100 // (unique_actions - 1))}%') for i in range(unique_actions)]
     fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
-               ncol=3, fontsize='large')
+               ncol=unique_actions, fontsize='large')
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.15, top=0.9, wspace=0.3)
@@ -82,6 +79,10 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
     file_paths.append(file_path)
 
     return file_paths
+
+
+
+
 
 
 

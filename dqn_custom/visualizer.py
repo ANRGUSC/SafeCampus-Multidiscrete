@@ -13,23 +13,27 @@ import torch.nn as nn
 import torch.optim as optim
 from itertools import combinations
 import matplotlib.patches as mpatches
+import colorsys
 
 # policy matrix
 
+def generate_distinct_colors(n):
+    HSV_tuples = [(x * 1.0 / n, 0.5, 0.95) for x in range(n)]  # Adjusted the brightness for better distinction
+    RGB_tuples = list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
+    return ['#{:02x}{:02x}{:02x}'.format(int(r * 255), int(g * 255), int(b * 255)) for r, g, b in RGB_tuples]
 
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
-import numpy as np
-import torch
-import itertools
-
-
-def visualize_all_states(model, all_states, run_name, num_courses, max_episodes, alpha, results_subdirectory,
-                         students_per_course):
+def visualize_all_states(model, all_states, run_name, num_courses, max_episodes, alpha, results_subdirectory, students_per_course):
     method_name = "viz all states"
     file_paths = []
-    colors = ['blue', 'green', 'red']  # Light Red, Light Blue, Green
-    color_map = {0: colors[0], 1: colors[1], 2: colors[2]}
+
+    # Determine the number of actions
+    with torch.no_grad():
+        sample_state = torch.FloatTensor(all_states[0]).unsqueeze(0)
+        num_actions = model(sample_state).shape[1] // num_courses
+
+    # Generate distinct colors for each action
+    colors = generate_distinct_colors(num_actions)
+    color_map = {i: colors[i] for i in range(num_actions)}
 
     fig, axes = plt.subplots(1, num_courses, figsize=(5 * num_courses, 5), squeeze=False)
     fig.suptitle(f'DQN-{alpha})', fontsize=16)
@@ -38,7 +42,6 @@ def visualize_all_states(model, all_states, run_name, num_courses, max_episodes,
         x_values = np.linspace(0, 1, 10)  # 10 values for community risk
         y_values = np.linspace(0, students_per_course[course], 10)  # 10 values for infected students
         xx, yy = np.meshgrid(x_values, y_values)
-
         x_flat = xx.flatten()
         y_flat = yy.flatten()
 
@@ -48,15 +51,13 @@ def visualize_all_states(model, all_states, run_name, num_courses, max_episodes,
             adjusted_state = torch.FloatTensor(state).unsqueeze(0)
             with torch.no_grad():
                 q_values = model(adjusted_state)
-                action = q_values[0, course::num_courses].argmax().item()
+                action = q_values[0, course*num_actions:(course+1)*num_actions].argmax().item()
             color_values.append(color_map[action])
 
         ax = axes[0, course]
         scatter = ax.scatter(x_flat, y_flat, c=color_values, s=100, marker='s')
-
         ax.set_xlabel('Community Risk')
         ax.set_ylabel(f'Infected students in Course {course + 1}')
-        # ax.set_title(f'Course {course + 1}\nTotal Students: {students_per_course[course]}')
         ax.grid(False)
 
         # Add padding to y-axis
@@ -71,9 +72,8 @@ def visualize_all_states(model, all_states, run_name, num_courses, max_episodes,
         ax.set_yticklabels([f'{int(y)}' for y in ax.get_yticks()])
 
     # Create a custom legend
-    legend_elements = [mpatches.Patch(facecolor=colors[i], label=f'Allow {i * 50}%') for i in range(3)]
-    fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
-               ncol=3, fontsize='large')
+    legend_elements = [mpatches.Patch(facecolor=colors[i], label=f'Allow {i * (100 // (num_actions - 1))}%') for i in range(num_actions)]
+    fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05), ncol=min(num_actions, 5), fontsize='large')
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.15, top=0.9, wspace=0.3)

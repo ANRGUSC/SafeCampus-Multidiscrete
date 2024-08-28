@@ -11,7 +11,7 @@ np.random.seed(100)
 
 
 class Simulation:
-    def __init__(self, model, read_community_risk_from_csv=False, csv_path=None):
+    def __init__(self, model, read_community_risk_from_csv=False, csv_path=None, mode='train'):
         self.current_time = 0
         self.model = model
         self.allowed_students_per_course = []
@@ -28,6 +28,7 @@ class Simulation:
         self.risk_values = self.generate_episode_risk()
         self.risk_iterator = iter(self.risk_values)
         self.community_risk = next(self.risk_iterator)
+        self.mode = mode  # 'train' or 'eval'
 
         if read_community_risk_from_csv and csv_path:
             self.read_community_risk_from_csv(csv_path)
@@ -90,39 +91,39 @@ class Simulation:
         return None
 
     def apply_action(self, action: list, community_risk: float):
-        # print("student_status: ", self.student_status)
-        # print('initial_infection: ', self.model.get_initial_infection())
-        allowed_students_per_course = [
-            math.ceil(students * action[i] / self.model.total_students)
-            for i, students in enumerate(self.model.number_of_students_per_course())
-        ]
+        allowed_students_per_course = []
+        for i, students in enumerate(self.model.number_of_students_per_course()):
+            if isinstance(action[i], (np.ndarray, list)):
+                # If action[i] is an array or list, take the first element
+                action_value = float(action[i][0])
+            else:
+                # If action[i] is already a scalar, use it directly
+                action_value = float(action[i])
+
+            allowed = math.ceil(students * action_value / self.model.total_students)
+            allowed_students_per_course.append(allowed)
+
         updated_infected = estimate_infected_students(self.student_status, allowed_students_per_course, community_risk,
                                                       self.model.number_of_students_per_course())
-
 
         self.allowed_students_per_course = allowed_students_per_course
         self.student_status = updated_infected
         self.weekly_infected_students.append(sum(updated_infected))
 
-        # if self.current_time >= int(self.model.max_weeks / 2):
-        #     self.set_community_risk_low()
-        # else:
-        #     self.set_community_risk_high()
-        # self.community_risk = random.uniform(0.0, 1.0)
-        # self.total_steps += 1
-        # try:
-        #     self.community_risk = next(self.risk_iterator)
-        # except StopIteration:
-        #     # If we've reached the end of the risk values, reset for the next episode
-        #     self.risk_values = self.generate_episode_risk()
-        #     self.risk_iterator = iter(self.risk_values)
-        #     self.community_risk = next(self.risk_iterator)
-        # For evaluation purposes
-        if hasattr(self, 'community_risk_values') and self.current_time < len(self.community_risk_values):
-            self.community_risk = self.community_risk_values[self.current_time]
+        self.total_steps += 1
+
+        if self.mode == 'train':
+            try:
+                self.community_risk = next(self.risk_iterator)
+            except StopIteration:
+                self.risk_values = self.generate_episode_risk()
+                self.risk_iterator = iter(self.risk_values)
+                self.community_risk = next(self.risk_iterator)
+        elif self.mode == 'eval':
+            if hasattr(self, 'community_risk_values') and self.current_time < len(self.community_risk_values):
+                self.community_risk = self.community_risk_values[self.current_time]
+
         self.current_time += 1
-        # logging.info(
-        #     f"Step {self.current_time}: community_risk={self.community_risk}, infected={self.student_status}, allowed={self.allowed_students_per_course}")
 
     def get_reward(self, alpha: float):
         # Sum all allowed students and infected students across all courses
@@ -143,13 +144,15 @@ class Simulation:
     def reset(self):
         self.current_time = 0
         self.allowed_students_per_course = self.model.number_of_students_per_course()
-        # self.student_status = [random.randint(1, 99) for _ in self.allowed_students_per_course] # for training
-        self.student_status = [20 for _ in self.allowed_students_per_course] # for testing
-        if hasattr(self, 'community_risk_values') and self.community_risk_values:
-            self.community_risk = self.community_risk_values[0]
-        else:
-            self.risk_values = self.generate_episode_risk()  # New risk pattern for the new episode
+
+        if self.mode == 'train':
+            self.student_status = [random.randint(1, 99) for _ in self.allowed_students_per_course]
+            self.risk_values = self.generate_episode_risk()
             self.risk_iterator = iter(self.risk_values)
             self.community_risk = next(self.risk_iterator)
+        elif self.mode == 'eval':
+            self.student_status = [20 for _ in self.allowed_students_per_course]
+            if hasattr(self, 'community_risk_values') and self.community_risk_values:
+                self.community_risk = self.community_risk_values[0]
 
-        return self.get_student_status()  # Call the method to return the actual state
+        return self.get_student_status()

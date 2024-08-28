@@ -8,10 +8,9 @@ from collections import deque
 import random
 import itertools
 from tqdm import tqdm
-from .utilities import load_config
+from .utilities import load_config, ExplorationRateDecay
 from .visualizer import visualize_all_states, states_visited_viz
 import pandas as pd
-
 import wandb
 from torch.optim.lr_scheduler import StepLR
 import math
@@ -23,7 +22,10 @@ import torch.nn.functional as F
 import csv
 import os
 import time
+from scipy.signal import argrelextrema
+
 epsilon = 1e-10
+SEED = 100
 
 def log_metrics_to_csv(file_path, metrics):
     file_exists = os.path.isfile(file_path)
@@ -46,130 +48,17 @@ def set_seed(seed):
 
 
 # Set seed for reproducibility
-set_seed(100)  # Replace 42 with your desired seed value
-
+set_seed(SEED)  # Replace 42 with your desired seed value
+allowed = torch.tensor([0, 50, 100])  # Updated allowed values
 
 def log_all_states_visualizations(q_table, all_states, states, run_name, max_episodes, alpha, results_subdirectory):
     file_paths = visualize_all_states(q_table, all_states, states, run_name, max_episodes, alpha, results_subdirectory)
 
-    # Log all generated visualizations
-    # wandb_images = [wandb.Image(path) for path in file_paths]
-    # wandb.log({"All States Visualization": wandb_images})
-    #
-    # # Log them individually with dimension information
-    # for path in file_paths:
-    #     infected_dim = path.split('infected_dim_')[-1].split('.')[0]
-    #     wandb.log({f"All States Visualization (Infected Dim {infected_dim})": wandb.Image(path)})
-
-
 def log_states_visited(states, visit_counts, alpha, results_subdirectory):
     file_paths = states_visited_viz(states, visit_counts, alpha, results_subdirectory)
 
-    # Log all generated heatmaps
-    # wandb_images = [wandb.Image(path) for path in file_paths]
-    # wandb.log({"States Visited": wandb_images})
-    #
-    # # Log them individually with dimension information
-    # for path in file_paths:
-    #     if "error" in path:
-    #         wandb.log({"States Visited Error": wandb.Image(path)})
-    #     else:
-    #         dim = path.split('infected_dim_')[-1].split('.')[0]
-    #         wandb.log({f"States Visited (Infected Dim {dim})": wandb.Image(path)})
-
-class ExplorationRateDecay:
-    def __init__(self, max_episodes, min_exploration_rate, initial_exploration_rate):
-        self.max_episodes = max_episodes
-        self.min_exploration_rate = min_exploration_rate
-        self.initial_exploration_rate = initial_exploration_rate
-        self.current_decay_function = 1  # Variable to switch between different decay functions
-
-    def set_decay_function(self, decay_function_number):
-        self.current_decay_function = decay_function_number
-
-    def get_exploration_rate(self, episode):
-        if self.current_decay_function == 1:  # Exponential Decay
-            exploration_rate = self.initial_exploration_rate * np.exp(-episode / self.max_episodes)
-
-        elif self.current_decay_function == 2:  # Linear Decay
-            exploration_rate = self.initial_exploration_rate - (
-                        self.initial_exploration_rate - self.min_exploration_rate) * (episode / self.max_episodes)
-
-        elif self.current_decay_function == 3:  # Polynomial Decay
-            exploration_rate = self.initial_exploration_rate * (1 - episode / self.max_episodes) ** 2
-
-        elif self.current_decay_function == 4:  # Inverse Time Decay
-            exploration_rate = self.initial_exploration_rate / (1 + episode)
-
-        elif self.current_decay_function == 5:  # Sine Wave Decay
-            exploration_rate = self.min_exploration_rate + 0.5 * (
-                        self.initial_exploration_rate - self.min_exploration_rate) * (
-                                           1 + np.sin(np.pi * episode / self.max_episodes))
-
-        elif self.current_decay_function == 6:  # Logarithmic Decay
-            exploration_rate = self.initial_exploration_rate - (
-                        self.initial_exploration_rate - self.min_exploration_rate) * np.log(episode + 1) / np.log(
-                self.max_episodes + 1)
-
-        elif self.current_decay_function == 7:  # Hyperbolic Tangent Decay
-            exploration_rate = self.min_exploration_rate + 0.5 * (
-                        self.initial_exploration_rate - self.min_exploration_rate) * (
-                                           1 - np.tanh(episode / self.max_episodes))
-        elif self.current_decay_function == 8:  # Square Root Decay
-            exploration_rate = self.initial_exploration_rate * (1 - np.sqrt(episode / self.max_episodes))
-        elif self.current_decay_function == 9:  # Stepwise Decay
-            steps = 10
-            step_size = (self.initial_exploration_rate - self.min_exploration_rate) / steps
-            exploration_rate = self.initial_exploration_rate - (episode // (self.max_episodes // steps)) * step_size
-        elif self.current_decay_function == 10:  # Inverse Square Root Decay
-            exploration_rate = self.initial_exploration_rate / np.sqrt(episode + 1)
-        elif self.current_decay_function == 11:  # Sigmoid Decay
-            midpoint = self.max_episodes / 2
-            smoothness = self.max_episodes / 10  # Adjust this divisor to change smoothness
-            exploration_rate = self.min_exploration_rate + (
-                    self.initial_exploration_rate - self.min_exploration_rate) / (
-                                       1 + np.exp((episode - midpoint) / smoothness))
-
-        elif self.current_decay_function == 12:  # Quadratic Decay
-            exploration_rate = self.initial_exploration_rate * (1 - (episode / self.max_episodes) ** 2)
-        elif self.current_decay_function == 13:  # Cubic Decay
-            exploration_rate = self.initial_exploration_rate * (1 - (episode / self.max_episodes) ** 3)
-        elif self.current_decay_function == 14:  # Sine Squared Decay
-            exploration_rate = self.min_exploration_rate + (
-                        self.initial_exploration_rate - self.min_exploration_rate) * np.sin(
-                np.pi * episode / self.max_episodes) ** 2
-        elif self.current_decay_function == 15:  # Cosine Squared Decay
-            exploration_rate = self.min_exploration_rate + (
-                        self.initial_exploration_rate - self.min_exploration_rate) * np.cos(
-                np.pi * episode / self.max_episodes) ** 2
-        elif self.current_decay_function == 16:  # Double Exponential Decay
-            exploration_rate = self.initial_exploration_rate * np.exp(-np.exp(episode / self.max_episodes))
-        elif self.current_decay_function == 17:  # Log-Logistic Decay
-            exploration_rate = self.min_exploration_rate + (
-                        self.initial_exploration_rate - self.min_exploration_rate) / (1 + np.log(episode + 1))
-        elif self.current_decay_function == 18:  # Harmonic Series Decay
-            exploration_rate = self.min_exploration_rate + (
-                        self.initial_exploration_rate - self.min_exploration_rate) / (
-                                           1 + np.sum(1 / np.arange(1, episode + 2)))
-        elif self.current_decay_function == 19:  # Piecewise Linear Decay
-            if episode < self.max_episodes / 2:
-                exploration_rate = self.initial_exploration_rate - (
-                            self.initial_exploration_rate - self.min_exploration_rate) * (
-                                               2 * episode / self.max_episodes)
-            else:
-                exploration_rate = self.min_exploration_rate
-        elif self.current_decay_function == 20:  # Custom Polynomial Decay
-            p = 3  # Change the power for different polynomial behaviors
-            exploration_rate = self.initial_exploration_rate * (1 - (episode / self.max_episodes) ** p)
-        else:
-            raise ValueError("Invalid decay function number")
-
-        return exploration_rate
-
-
-# Define the Lyapunov Network
 class LyapunovNet(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim=2, hidden_dim=64, output_dim=1):
         super(LyapunovNet, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
@@ -179,8 +68,15 @@ class LyapunovNet(nn.Module):
     def forward(self, x):
         out = self.relu(self.fc1(x))
         out = self.relu(self.fc2(out))
-        out = self.fc3(out)
+        out = F.softplus(self.fc3(out))  # Ensure positive output
         return out
+
+
+
+
+
+
+
 class DeepQNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim, out_dim):
         super(DeepQNetwork, self).__init__()
@@ -198,6 +94,7 @@ class DeepQNetwork(nn.Module):
         h_prime = self.encoder(x)
         Q_values = self.out(h_prime)
         return Q_values
+
 class DQNCustomAgent:
     def __init__(self, env, run_name, shared_config_path, agent_config_path=None, override_config=None, csv_path=None):
         # Load Shared Config
@@ -215,6 +112,7 @@ class DQNCustomAgent:
 
         # Access the results directory from the shared_config
         self.results_directory = self.shared_config.get('directories', {}).get('results_directory', None)
+
 
         # Debugging: Print results_directory and run_name
         print(f"results_directory: {self.results_directory}")
@@ -247,7 +145,6 @@ class DQNCustomAgent:
         self.hidden_dim = self.agent_config['agent']['hidden_units']
         self.num_courses = self.env.action_space.nvec[0]
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = DeepQNetwork(self.input_dim, self.hidden_dim, self.output_dim)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.agent_config['agent']['learning_rate'])
 
@@ -258,12 +155,6 @@ class DQNCustomAgent:
         self.exploration_rate = self.agent_config['agent']['exploration_rate']
         self.min_exploration_rate = self.agent_config['agent']['min_exploration_rate']
         self.exploration_decay_rate = self.agent_config['agent']['exploration_decay_rate']
-        self.target_network_frequency = self.agent_config['agent']['target_network_frequency']
-
-        # Replay memory
-        # self.replay_memory = deque(maxlen=self.agent_config['agent']['replay_memory_capacity'])
-        # self.batch_size = self.agent_config['agent']['batch_size']
-
         self.possible_actions = [list(range(0, (k))) for k in self.env.action_space.nvec]
         self.all_actions = [str(i) for i in list(itertools.product(*self.possible_actions))]
 
@@ -283,10 +174,6 @@ class DQNCustomAgent:
         self.softmax_temperature = self.agent_config['agent']['softmax_temperature']
 
         self.state_visit_counts = {}
-        self.noise_scale = 0.1
-        self.noise_decay_rate = 0.9999
-        self.noise_frequency = 1000
-        self.aggressiveness = 0.8
 
         self.decay_handler = ExplorationRateDecay(self.max_episodes, self.min_exploration_rate, self.exploration_rate)
         self.decay_function = self.agent_config['agent']['e_decay_function']
@@ -306,7 +193,22 @@ class DQNCustomAgent:
         else:
             self.community_risk_values = None
             self.max_weeks = self.env.campus_state.model.get_max_weeks()
+        self.save_path = self.results_subdirectory  # Ensure save path is set
+        self.scaler = torch.cuda.amp.GradScaler(enabled=torch.cuda.is_available())
 
+    def get_next_state(self, current_state, alpha=0.2):
+        current_infected = current_state[0].unsqueeze(0)
+        community_risk = current_state[1].unsqueeze(0)
+
+        label, allowed_value, new_infected, _, _, _ = self.get_label(current_infected, community_risk, alpha)
+
+        return torch.tensor([new_infected.item(), community_risk.item()], dtype=torch.float32)
+
+    def generate_diverse_states(self, num_samples):
+        rng = np.random.default_rng(SEED)  # Create a new RNG with the seed
+        infected = rng.uniform(0, 100, num_samples)
+        risk = rng.uniform(0, 1, num_samples)
+        return torch.tensor(np.column_stack((infected, risk)), dtype=torch.float32)
     def read_community_risk_from_csv(self, csv_path):
         try:
             community_risk_df = pd.read_csv(csv_path)
@@ -321,10 +223,8 @@ class DQNCustomAgent:
             with torch.no_grad():
                 state = torch.FloatTensor(state).unsqueeze(0)
                 q_values = self.model(state)
-                # print(f"Q-values shape in select_action: {q_values.shape}")
                 # Repeat Q-values for each course
                 q_values = q_values.repeat(1, self.num_courses).view(self.num_courses, -1)
-
                 actions = q_values.max(1)[1].tolist()
                 return [action * 50 for action in actions]
 
@@ -340,7 +240,7 @@ class DQNCustomAgent:
             q_values = torch.from_numpy(q_values).float()
 
         # Ensure q_values is on the correct device
-        q_values = q_values.to(self.device)
+        # q_values = q_values.to(self.device)
 
         # Ensure q_values is 2D
         if q_values.dim() == 1:
@@ -355,6 +255,8 @@ class DQNCustomAgent:
 
         # Return mean entropy as a Python float
         return entropy.mean().item()
+
+
 
 
     def train(self, alpha):
@@ -380,7 +282,6 @@ class DQNCustomAgent:
             writer.writeheader()
 
         previous_q_values = None
-
         for episode in range(self.max_episodes):
             self.decay_handler.set_decay_function(self.decay_function)
             state, _ = self.env.reset()
@@ -396,7 +297,8 @@ class DQNCustomAgent:
             episode_infected = []
 
             while not done:
-                actions = self.select_action(state)
+                with torch.no_grad():
+                    actions = self.select_action(state)
                 next_state, reward, done, _, info = self.env.step((actions, alpha))
                 next_state = np.array(next_state, dtype=np.float32)
 
@@ -412,6 +314,7 @@ class DQNCustomAgent:
                 if previous_q_values is not None:
                     q_value_change += np.mean((current_q_values - previous_q_values) ** 2)
                 previous_q_values = current_q_values
+
                 # Update Q-values directly without replay memory or batch processing
                 state_tensor = torch.FloatTensor(state).unsqueeze(0)
                 next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0)
@@ -434,10 +337,13 @@ class DQNCustomAgent:
                 loss = nn.MSELoss()(current_q_values, target_q_values)
 
                 self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+                with torch.cuda.amp.autocast():
+                    loss = nn.MSELoss()(current_q_values, target_q_values)
+                self.scaler.scale(loss).backward()
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
 
-                episode_q_values.extend(current_q_values.detach().numpy().tolist())
+                episode_q_values.extend(current_q_values.detach().cpu().numpy().tolist())
 
                 state = next_state
                 state_tuple = tuple(state)
@@ -476,6 +382,8 @@ class DQNCustomAgent:
 
         pbar.close()
         csvfile.close()
+
+
 
         # Calculate the means for allowed and infected
         mean_allowed = round(sum(allowed_means_per_episode) / len(allowed_means_per_episode))
@@ -591,8 +499,6 @@ class DQNCustomAgent:
                 if previous_q_values is not None:
                     q_value_change += np.mean((current_q_values - previous_q_values) ** 2)
                 previous_q_values = current_q_values
-
-
                 # Update Q-values directly without replay memory or batch processing
                 state_tensor = torch.FloatTensor(state).unsqueeze(0)
                 next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0)
@@ -629,13 +535,9 @@ class DQNCustomAgent:
 
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
             self.run_rewards_per_episode.append(episode_rewards)
-
-
             pbar.update(1)
             pbar.set_description(f"Total Reward: {total_reward:.2f}, Epsilon: {self.exploration_rate:.2f}")
-
         pbar.close()
-
 
         # Debugging: Print all rewards after training
         print("All Rewards:", self.run_rewards_per_episode)
@@ -856,165 +758,32 @@ class DQNCustomAgent:
         confidence_output_path = os.path.join(self.results_subdirectory, 'confidence_interval.png')
         self.visualize_confidence_interval(returns_per_episode, confidence_alpha, confidence_output_path)
         wandb.log({"Confidence Interval": [wandb.Image(confidence_output_path)]})
-
-        # Box Plot Confidence Intervals
-        # boxplot_output_path = os.path.join(self.results_subdirectory, 'boxplot_confidence_interval.png')
-        # self.visualize_boxplot_confidence_interval(returns_per_episode, confidence_alpha, boxplot_output_path)
-        # wandb.log({"Box Plot Confidence Interval": [wandb.Image(boxplot_output_path)]})
-
-
-
-
-
-
-    # def evaluate(self, run_name, num_episodes=1, alpha=0.5, csv_path=None):
-    #     model_subdirectory = os.path.join(self.model_directory, self.agent_type, run_name)
-    #     model_file_path = os.path.join(model_subdirectory, f'model.pt')
-    #     results_directory = self.results_subdirectory
-    #
-    #     if not os.path.exists(model_file_path):
-    #         raise FileNotFoundError(f"Model file not found in {model_file_path}")
-    #
-    #     self.model.load_state_dict(torch.load(model_file_path))
-    #     self.model.eval()
-    #     print(f"Loaded model from {model_file_path}")
-    #
-    #     if csv_path:
-    #         self.community_risk_values = self.read_community_risk_from_csv(csv_path)
-    #         self.max_weeks = len(self.community_risk_values)
-    #         print(f"Community Risk Values: {self.community_risk_values}")
-    #
-    #     total_rewards = []
-    #     # allowed_values_over_time = []
-    #     # infected_values_over_time = []
-    #     evaluation_subdirectory = os.path.join(results_directory, run_name)
-    #     os.makedirs(evaluation_subdirectory, exist_ok=True)
-    #     csv_file_path = os.path.join(evaluation_subdirectory, f'evaluation_metrics_{run_name}.csv')
-    #
-    #     with open(csv_file_path, mode='w', newline='') as file:
-    #         writer = csv.writer(file)
-    #         writer.writerow(['Episode', 'Step', 'State', 'Action', 'Community Risk', 'Total Reward'])
-    #
-    #         for episode in range(num_episodes):
-    #             # Initialize the state
-    #             initial_infection_count = 20
-    #             initial_community_risk = self.community_risk_values[0] if csv_path else 0
-    #             state = np.array([initial_infection_count, int(initial_community_risk * 100)], dtype=np.float32)
-    #             print(f"Initial state for episode {episode + 1}: {state}")
-    #             total_reward = 0
-    #             done = False
-    #             step = 0
-    #
-    #             # Initialize plotting lists
-    #             allowed_values_over_time = []
-    #             infected_values_over_time = [initial_infection_count]
-    #
-    #             while not done:
-    #                 with torch.no_grad():
-    #                     state_tensor = torch.FloatTensor(state).unsqueeze(0)
-    #                     q_values = self.model(state_tensor)
-    #                     actions = q_values.argmax(dim=1).cpu().numpy()
-    #                     actions = [action * 50 for action in actions]
-    #
-    #                 next_state, reward, done, _, info = self.env.step((actions, alpha))
-    #                 next_state = np.array(next_state, dtype=np.float32)
-    #                 total_reward += reward
-    #
-    #                 # Log the data
-    #                 writer.writerow(
-    #                     [episode + 1, step + 1, int(state[0]), actions[0], info['community_risk'], reward]
-    #                 )
-    #
-    #                 # Collect data for plotting (now including the first week)
-    #                 if episode == 0:
-    #                     allowed_values_over_time.append(actions[0])
-    #                     infected_values_over_time.append(next_state[0])  # Use next_state for infected count
-    #
-    #                 state = next_state
-    #                 step += 1
-    #
-    #             total_rewards.append(total_reward)
-    #
-    #             print(f"Episode {episode + 1}: Total Reward = {total_reward}")
-    #
-    #         avg_reward = np.mean(total_rewards)
-    #     print(f"Cumulative Reward over {num_episodes} episodes: {sum(total_rewards)}")
-    #
-    #     # Debug prints
-    #     print(f"Length of allowed_values_over_time: {len(allowed_values_over_time)}")
-    #     print(f"Length of infected_values_over_time: {len(infected_values_over_time)}")
-    #     print(f"Length of self.community_risk_values: {len(self.community_risk_values)}")
-    #
-    #     # Ensure all arrays have the same length
-    #     min_length = min(len(allowed_values_over_time), len(infected_values_over_time), len(self.community_risk_values))
-    #     allowed_values_over_time = allowed_values_over_time[:min_length]
-    #     infected_values_over_time = infected_values_over_time[:min_length]
-    #     community_risk_values = self.community_risk_values[:min_length]
-    #
-    #     # Create weeks array
-    #     weeks = range(1, min_length + 1)
-    #
-    #     # Debug prints after adjustment
-    #     print(f"After adjustment:")
-    #     print(f"Length of allowed_values_over_time: {len(allowed_values_over_time)}")
-    #     print(f"Length of infected_values_over_time: {len(infected_values_over_time)}")
-    #     print(f"Length of community_risk_values: {len(community_risk_values)}")
-    #     print(f"Length of weeks: {len(weeks)}")
-    #
-    #     # Plotting
-    #     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
-    #
-    #     # Subplot 1: Community Risk
-    #     sns.lineplot(x=weeks, y=community_risk_values,
-    #                  marker='s', linestyle='--', color='darkgreen', linewidth=2.5, ax=ax1)
-    #     ax1.set_xlabel('Week')
-    #     ax1.set_ylabel('Community Risk', color='darkgreen')
-    #     ax1.tick_params(axis='y', labelcolor='darkgreen')
-    #
-    #     # Subplot 2: Allowed and Infected Values
-    #     ax2.bar(weeks, allowed_values_over_time,
-    #             color='blue', alpha=0.6, width=0.4, align='center', label='Allowed')
-    #     ax2.bar(weeks, infected_values_over_time,
-    #             color='red', alpha=0.6, width=0.4, align='edge', label='Infected')
-    #     ax2.set_xlabel('Week')
-    #     ax2.set_ylabel('Allowed and Infected Values')
-    #     ax2.legend(loc='upper left')
-    #
-    #     # Set x-ticks to show fewer labels and label weeks from 1 to n
-    #     ticks = range(0, min_length, max(1, min_length // 10))
-    #     labels = [f'Week {i + 1}' for i in ticks]
-    #
-    #     ax1.set_xticks(ticks)
-    #     ax1.set_xticklabels(labels, rotation=45)
-    #     ax2.set_xticks(ticks)
-    #     ax2.set_xticklabels(labels, rotation=45)
-    #
-    #     # Adjust layout and save the plot
-    #     plt.tight_layout()
-    #     plt.savefig(os.path.join(evaluation_subdirectory, f"evaluation_plot_{run_name}.png"))
-    #     plt.show()
-    #
-    #     return avg_reward
-
     def identify_safety_set(self, allowed_values_over_time, infected_values_over_time, x, y, z,
                             evaluation_subdirectory):
-        """Identify and plot the safety set based on constraints."""
-        # Determine safety boundaries
-        safe_infection_values = [val for val in infected_values_over_time if val <= x]
-        safe_attendance_values = [val for val in allowed_values_over_time if val <= y]
+        """Identify and plot the safety set based on fixed constraints."""
+        # Process infected_values_over_time to ensure it contains only scalar values
+        processed_infected_values = [
+            infected[0] if isinstance(infected, (list, tuple)) else infected
+            for infected in infected_values_over_time
+        ]
 
-        # Calculate the percentage of time spent in safe regions
-        infection_safety_percentage = (len(safe_infection_values) / len(infected_values_over_time)) * 100
-        attendance_safety_percentage = (len(safe_attendance_values) / len(allowed_values_over_time)) * 100
+        # 1. Ensure that no more than `x` infected individuals are present for more than `z%` of the time.
+        time_exceeding_x = sum(1 for val in processed_infected_values if val > x)
+        time_within_x = len(processed_infected_values) - time_exceeding_x
+        infection_safety_percentage = (time_within_x / len(processed_infected_values)) * 100
 
-        # Save the safety percentages
+        # 2. Ensure that `y` allowed students are present at least `z%` of the time.
+        time_with_y_present = sum(1 for val in allowed_values_over_time if val >= y)
+        attendance_safety_percentage = (time_with_y_present / len(allowed_values_over_time)) * 100
+
         with open(os.path.join(evaluation_subdirectory, 'safety_set.txt'), 'w') as f:
-            f.write(f"Safety Percentage for Infections <= {x}: {infection_safety_percentage}%\n")
-            f.write(f"Safety Percentage for Attendance <= {y}: {attendance_safety_percentage}%\n")
+            f.write(f"Safety Condition: No more than {x} infections for {100 - z}% of time: "
+                    f"{infection_safety_percentage}%\n")
+            f.write(f"Safety Condition: At least {y} allowed students for {z}% of time: "
+                    f"{attendance_safety_percentage}%\n")
 
-        # Plot the safety set
         plt.figure(figsize=(10, 6))
-        plt.scatter(allowed_values_over_time, infected_values_over_time, color='blue', label='State Points')
+        plt.scatter(allowed_values_over_time, processed_infected_values, color='blue', label='State Points')
         plt.axhline(y=x, color='red', linestyle='--', label=f'Infection Threshold (x={x})')
         plt.axvline(x=y, color='green', linestyle='--', label=f'Attendance Threshold (y={y})')
         plt.xlabel('Allowed Students')
@@ -1023,20 +792,28 @@ class DQNCustomAgent:
         plt.title('Safety Set Identification')
         plt.grid(True)
         plt.savefig(os.path.join(evaluation_subdirectory, 'safety_set.png'))
-        plt.show()
+        plt.close()
 
-        return infection_safety_percentage >= (100 - z), attendance_safety_percentage >= (100 - z)
+        # Check if the conditions are met
+        infection_condition_met = infection_safety_percentage >= (100 - z)
+        attendance_condition_met = attendance_safety_percentage >= z
+
+        return infection_condition_met, attendance_condition_met
 
     def construct_cbf(self, allowed_values_over_time, infected_values_over_time, evaluation_subdirectory, x, y):
-        """Construct and save the Control Barrier Function (CBF) based on the safety set."""
-        # Define the CBFs
-        B1 = lambda s: x - s[1]  # Safety for infections
-        B2 = lambda s: y - s[0]  # Safety for attendance
+        """Construct and save the Control Barrier Function (CBF) based on fixed safety constraints."""
+        processed_infected_values = [
+            infected[0] if isinstance(infected, (list, tuple)) else infected
+            for infected in infected_values_over_time
+        ]
 
-        # Save the CBF equations
+        # Directly use the provided x and y values
+        B1 = lambda s: x - (s[1][0] if isinstance(s[1], (list, tuple)) else s[1])
+        B2 = lambda s: (s[0] - y)
+
         with open(os.path.join(evaluation_subdirectory, 'cbf.txt'), 'w') as f:
             f.write(f"CBF for Infections: B1(s) = {x} - Infected Individuals\n")
-            f.write(f"CBF for Attendance: B2(s) = {y} - Allowed Students\n")
+            f.write(f"CBF for Attendance: B2(s) = Allowed Students - {y}\n")
 
         return B1, B2
 
@@ -1048,7 +825,7 @@ class DQNCustomAgent:
             s_t = [allowed_values_over_time[i], infected_values_over_time[i]]
             s_t_plus_1 = [allowed_values_over_time[i + 1], infected_values_over_time[i + 1]]
 
-            # Calculate derivatives
+            # Calculate derivatives with correct unpacking
             dB1_dt = B1(s_t_plus_1) - B1(s_t)
             dB2_dt = B2(s_t_plus_1) - B2(s_t)
 
@@ -1065,11 +842,11 @@ class DQNCustomAgent:
 
         return is_invariant
 
-    def extract_features(self, allowed_values_over_time, infected_values_over_time):
-        """Extract features for constructing the Lyapunov function."""
+    def extract_features(self, infected_values_over_time, community_risk_values):
+        """Extract features for constructing the Lyapunov function using infected and community risk."""
         features = []
-        for i in range(len(allowed_values_over_time)):
-            features.append([allowed_values_over_time[i], infected_values_over_time[i]])
+        for infected, risk in zip(infected_values_over_time, community_risk_values):
+            features.append([infected, risk])
         return features
 
     def normalize_features(self, features):
@@ -1081,179 +858,619 @@ class DQNCustomAgent:
             flattened_feature = [item for sublist in feature for item in
                                  (sublist if isinstance(sublist, (list, tuple)) else [sublist])]
         else:
-            flattened_feature = [feature]  # Handle the case where feature is a single scalar
+            flattened_feature = [feature]
 
-        # Ensure the flattened feature is a 3-element list for use in the neural network
-        if len(flattened_feature) > 3:
-            flattened_feature = flattened_feature[:3]  # Truncate if there are more than 3 elements
-        elif len(flattened_feature) < 3:
-            flattened_feature.extend(
-                [0] * (3 - len(flattened_feature)))  # Pad with zeros if there are fewer than 3 elements
+        # Ensure we only take the first two elements
+        return flattened_feature[:2]
 
-        return flattened_feature
-
-    def construct_lyapunov_function(self, features, evaluation_subdirectory):
-        """Construct and save the Lyapunov function based on the learned parameters."""
-        # Hyperparameters to adjust
-        hidden_dim = 64  # Adjust the number of hidden units
-        learning_rate = 0.0001  # Adjust learning rate
-        weight_decay = 1e-4  # Adjust L2 regularization
-        epochs = 100  # Adjust number of epochs
-
-        # Initialize the neural network
-        model = LyapunovNet(input_dim=3, hidden_dim=hidden_dim, output_dim=1)
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-        loss_function = nn.MSELoss()
+    def construct_lyapunov_function(self, features, alpha):
+        model = LyapunovNet(input_dim=2, hidden_dim=64, output_dim=1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
         loss_values = []
+        epochs = 1000
+        epsilon = 1e-6
 
-        # Flatten features
-        flattened_features = [self.flatten_features(feature) for feature in features]
-        features_tensor = torch.tensor(flattened_features, dtype=torch.float32)
-        target_tensor = torch.zeros(len(features_tensor), dtype=torch.float32)
+        train_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
 
-        try:
-            for epoch in range(epochs):
-                optimizer.zero_grad()
-                V_values = model(features_tensor).squeeze()
+        for epoch in range(epochs):
+            optimizer.zero_grad()
+            V = model(train_states)
+            next_states = self.get_next_states(train_states, alpha)
+            V_next = model(next_states)
 
-                loss = loss_function(V_values, target_tensor)
+            positive_definite_loss = F.relu(-V + epsilon).mean()
+            decreasing_loss = F.relu(V_next - V + epsilon).mean()
 
-                loss.backward()
-                optimizer.step()
+            zero_states = torch.all(train_states == 0, dim=1)
+            origin_loss = V[zero_states].mean() if zero_states.any() else torch.tensor(0.0)
 
-                loss_values.append(loss.item())
-                print(f"Epoch {epoch + 1}/{epochs}, Loss: {loss.item()}")
+            loss = positive_definite_loss + decreasing_loss + origin_loss
 
-            # Save the final model parameters (theta) and loss
-            torch.save(model.state_dict(), os.path.join(evaluation_subdirectory, 'lyapunov_model.pth'))
-            with open(os.path.join(evaluation_subdirectory, 'lyapunov_loss_values.txt'), 'w') as f:
-                for i, loss_val in enumerate(loss_values):
-                    f.write(f"Epoch {i}: Loss = {loss_val}\n")
+            if torch.isnan(loss) or torch.isinf(loss):
+                print(f"Warning: NaN or Inf detected at epoch {epoch}")
+                continue
 
-            return model, None, loss_values  # Return the model (instead of V function) and None for theta
-        except Exception as e:
-            print(f"Error in construct_lyapunov_function: {e}")
-            return None, None, None
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
 
-    def plot_lyapunov_loss(self, loss_values, evaluation_subdirectory):
-        """Plot the loss function of the Lyapunov function training."""
+            if epoch % 10 == 0:
+                print(f"Epoch {epoch}, Loss: {loss.item():.6f}")
+
+            loss_values.append(loss.item())
+
+        torch.save(model.state_dict(), os.path.join(self.save_path, 'lyapunov_model.pth'))
+        with open(os.path.join(self.save_path, 'lyapunov_loss_values.txt'), 'w') as f:
+            for i, loss_val in enumerate(loss_values):
+                f.write(f"Epoch {i}: Loss = {loss_val}\n")
+
+        return model, None, loss_values  # Return None for theta as it's not used in this implementation
+
+    def evaluate_lyapunov(self, model, features, alpha):
+        # Evaluate using the community risk and infected values from the CSV
+        eval_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
+
+        with torch.no_grad():
+            V = model(eval_states).squeeze()
+            V_next = model(self.get_next_states(eval_states, alpha)).squeeze()
+
+            positive_definite = (V > 0).float().mean()
+            decreasing = (V_next < V).float().mean()
+
+        print(f"Positive definite: {positive_definite.item():.2%}")
+        print(f"Decreasing: {decreasing.item():.2%}")
+
+        return positive_definite.item(), decreasing.item()
+
+    def plot_loss_function(self, loss_values, alpha, run_name):
+        if not loss_values:
+            print("No loss values to plot.")
+            return
+
         plt.figure(figsize=(10, 6))
-        plt.plot(loss_values, label='Loss')
+        plt.plot(loss_values)
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
-        plt.title('Lyapunov Function Training Loss')
+        plt.title(f'Lyapunov Function Training Loss (Run: {run_name}, Alpha: {alpha})')
+        plt.yscale('log')  # Use log scale for y-axis
         plt.grid(True)
-        plt.legend()
         plt.tight_layout()
-        plt.savefig(os.path.join(evaluation_subdirectory, 'lyapunov_loss_plot.png'))
-        plt.show()
 
-    def plot_lyapunov_function_with_context(self, V, features, method_label, evaluation_subdirectory):
-        """Plot Lyapunov function behavior in DFE and EE regions."""
-        V_values = []
-        delta_V_values = []
-        dfe_indices = []
-        ee_indices = []
+        # Add text with min and max loss values
+        min_loss = min(loss_values)
+        max_loss = max(loss_values)
+        plt.text(0.05, 0.95, f'Min Loss: {min_loss:.6f}\nMax Loss: {max_loss:.6f}',
+                 transform=plt.gca().transAxes, verticalalignment='top')
 
-        for i in range(len(features) - 1):
-            feature = self.flatten_features(features[i])
-            next_feature = self.flatten_features(features[i + 1])
-
-            feature_tensor = torch.tensor(feature, dtype=torch.float32)
-            next_feature_tensor = torch.tensor(next_feature, dtype=torch.float32)
-
-            V_t = V(feature_tensor.unsqueeze(0)).item()
-            V_t_plus_1 = V(next_feature_tensor.unsqueeze(0)).item()
-
-            V_values.append(V_t)
-            delta_V_values.append(V_t_plus_1 - V_t)
-
-            if feature[1] == 0:  # Assuming the second element is the infection count
-                dfe_indices.append(i)
-            else:
-                ee_indices.append(i)
-
-        plt.figure(figsize=(12, 8))
-        plt.scatter([V_values[i] for i in dfe_indices], [delta_V_values[i] for i in dfe_indices],
-                    color='blue', s=5, alpha=0.5, label='DFE region (Infected = 0)')
-        plt.scatter([V_values[i] for i in ee_indices], [delta_V_values[i] for i in ee_indices],
-                    color='red', s=5, alpha=0.5, label='EE region (Infected > 0)')
-        plt.axhline(y=0, color='black', linestyle='--', label=r'$\Delta V = 0$')
-
-        plt.xlabel('Lyapunov Function Value $V$')
-        plt.ylabel(r'$\Delta V$')
-        plt.title(f'Lyapunov Function Behavior in DFE and EE Regions\nMethod: {method_label}')
-        plt.legend()
-        plt.grid(True)
-
-        # Dynamically set axis limits
-        v_min, v_max = min(V_values), max(V_values)
-        dv_min, dv_max = min(delta_V_values), max(delta_V_values)
-        plt.xlim(v_min - 0.1 * (v_max - v_min), v_max + 0.1 * (v_max - v_min))
-        plt.ylim(dv_min - 0.1 * (dv_max - dv_min), dv_max + 0.1 * (dv_max - dv_min))
-
-        plt.tight_layout()
-        plt.savefig(os.path.join(evaluation_subdirectory, f'lyapunov_function_with_context_{method_label}.png'))
+        plt.savefig(os.path.join(self.save_path, f'lyapunov_loss_plot_{run_name}_alpha_{alpha}.png'))
         plt.close()
 
-        # Print some statistics for debugging
-        print(f"Total points: {len(V_values)}")
-        print(f"DFE points: {len(dfe_indices)}")
-        print(f"EE points: {len(ee_indices)}")
-        print(f"V value range: [{v_min}, {v_max}]")
-        print(f"Delta V value range: [{dv_min}, {dv_max}]")
+        print(f"Min Loss: {min_loss}, Max Loss: {max_loss}")
 
-    def verify_lyapunov_stability(self, V, features, evaluation_subdirectory):
-        dfe_stable = True
-        ee_stable = True
+    def verify_lyapunov_stability(self, model, features, alpha):
+        # For evaluation, you will be using the community risk data from the CSV
+        positive_definite, decreasing = self.evaluate_lyapunov(model, features, alpha)
 
-        def flatten_feature(feature):
-            flattened_feature = [item for sublist in feature for item in
-                                 (sublist if isinstance(sublist, list) else [sublist])]
-            if len(flattened_feature) > 3:
-                flattened_feature = flattened_feature[:3]
-            elif len(flattened_feature) < 3:
-                flattened_feature.extend([0] * (3 - len(flattened_feature)))
-            return flattened_feature
+        with open(os.path.join(self.save_path, 'lyapunov_verification.txt'), 'w') as f:
+            f.write(f"Lyapunov Function Evaluation:\n")
+            f.write(f"Positive definite: {positive_definite:.2%}\n")
+            f.write(f"Decreasing: {decreasing:.2%}\n")
 
-        for i in range(len(features) - 1):
-            flattened_feature = flatten_feature(features[i])
-            flattened_next_feature = flatten_feature(features[i + 1])
-
-            feature_tensor = torch.tensor(flattened_feature, dtype=torch.float32)
-            next_feature_tensor = torch.tensor(flattened_next_feature, dtype=torch.float32)
-
-            try:
-                V_t = V(feature_tensor.unsqueeze(0))
-                V_t_plus_1 = V(next_feature_tensor.unsqueeze(0))
-                delta_V = V_t_plus_1 - V_t
-
-                print(f"V_t: {V_t.item()}, V_t_plus_1: {V_t_plus_1.item()}, delta_V: {delta_V.item()}")
-
-                if features[i][1] == 0:  # DFE region
-                    if delta_V.item() > 0:
-                        dfe_stable = False
-                else:  # EE region
-                    if delta_V.item() > 0:
-                        ee_stable = False
-            except Exception as e:
-                print(f"Error during V function evaluation: {e}")
-                raise
-
-        with open(os.path.join(evaluation_subdirectory, 'lyapunov_verification.txt'), 'w') as f:
-            if dfe_stable:
-                f.write("The system is stochastically stable in the Disease-Free Equilibrium (DFE) region.\n")
+            if positive_definite > 0.99 and decreasing > 0.99:
+                f.write("The Lyapunov function satisfies stability conditions.\n")
             else:
-                f.write("The system is not stochastically stable in the Disease-Free Equilibrium (DFE) region.\n")
+                f.write("The Lyapunov function does not fully satisfy stability conditions.\n")
 
-            if ee_stable:
-                f.write("The system is stochastically stable in the Endemic Equilibrium (EE) region.\n")
+        return positive_definite > 0.99 and decreasing > 0.99
+
+    def get_next_states(self, states, alpha):
+        next_states = []
+        for state in states:
+            with torch.no_grad():
+                q_values = self.model(state.unsqueeze(0))
+                action = q_values.argmax(dim=1).item()
+                allowed_value = action * 50  # Convert to allowed values (0, 50, 100)
+
+            current_infected = state[0].item()
+            community_risk = state[1].item()
+
+            alpha_infection = 0.005
+            beta_infection = 0.01
+
+            new_infected = ((alpha_infection * current_infected) * allowed_value) + \
+                           ((beta_infection * community_risk) * allowed_value ** 2)
+
+            new_infected = min(new_infected, allowed_value)
+            next_states.append(torch.tensor([new_infected, community_risk], dtype=torch.float32))
+
+        return torch.stack(next_states)
+
+    def plot_steady_state_and_stable_points(self, V, features, run_name, alpha):
+        infected = np.linspace(0, 100, 100)
+        risk = np.linspace(0, 1, 100)
+        X, Y = np.meshgrid(infected, risk)
+        states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
+
+        with torch.no_grad():
+            V_values = V(states).squeeze().cpu().numpy().reshape(X.shape)
+
+        steady_state = np.exp(-V_values / V_values.max())
+        steady_state /= steady_state.sum()
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+
+        c1 = ax1.contourf(X, Y, steady_state, levels=20, cmap='viridis')
+        ax1.set_title(f'Steady-State Distribution (Run: {run_name}, Alpha: {alpha})')
+        ax1.set_xlabel('Infected')
+        ax1.set_ylabel('Community Risk')
+        fig.colorbar(c1, ax=ax1, label='Steady-State Probability')
+
+        c2 = ax2.contourf(X, Y, V_values, levels=20, cmap='coolwarm')
+        ax2.set_title(f'Lyapunov Function (Run: {run_name}, Alpha: {alpha})')
+        ax2.set_xlabel('Infected')
+        ax2.set_ylabel('Community Risk')
+        fig.colorbar(c2, ax=ax2, label='Lyapunov Function Value')
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_path, f'steady_state_and_stable_points_{run_name}_alpha_{alpha}.png'))
+        plt.close()
+
+    def plot_lyapunov_change(self, V, features, run_name, alpha):
+        infected = np.linspace(0, 100, 50)
+        risk = np.linspace(0, 1, 50)
+        X, Y = np.meshgrid(infected, risk)
+        states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
+
+        with torch.no_grad():
+            V_values = V(states).squeeze().cpu().numpy().reshape(X.shape)
+            next_states = self.get_next_states(states, alpha)
+            V_next_values = V(next_states).squeeze().cpu().numpy().reshape(X.shape)
+            delta_V = V_next_values - V_values
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+
+        im1 = ax1.imshow(V_values, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='viridis')
+        ax1.set_title(f'Lyapunov Function V(x) (Run: {run_name}, Alpha: {alpha})')
+        ax1.set_xlabel('Infected')
+        ax1.set_ylabel('Community Risk')
+        fig.colorbar(im1, ax=ax1, label='V(x)')
+
+        im2 = ax2.imshow(delta_V, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='coolwarm')
+        ax2.set_title(f'Change in Lyapunov Function ΔV(x) (Run: {run_name}, Alpha: {alpha})')
+        ax2.set_xlabel('Infected')
+        ax2.set_ylabel('Community Risk')
+        fig.colorbar(im2, ax=ax2, label='ΔV(x)')
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_path, f'lyapunov_change_{run_name}_alpha_{alpha}.png'))
+        plt.close()
+
+    def plot_lyapunov_properties(self, V, features, run_name, alpha):
+        eval_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
+
+        with torch.no_grad():
+            V_values = V(eval_states).squeeze()
+            next_states = self.get_next_states(eval_states, alpha)
+            V_next = V(next_states).squeeze()
+            delta_V = V_next - V_values
+
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 8))
+
+        # Plot V(x)
+        ax1.plot(V_values.cpu().numpy(), label='V(x)')
+        ax1.axhline(y=0, color='r', linestyle='--', label='V(x) = 0')
+        ax1.set_title(f'Lyapunov Function Values (Run: {run_name}, Alpha: {alpha})')
+        ax1.set_xlabel('State Index')
+        ax1.set_ylabel('V(x)')
+        ax1.legend()
+        ax1.grid(True)
+
+        # Plot ΔV(x)
+        ax2.plot(delta_V.cpu().numpy(), label='ΔV(x)')
+        ax2.axhline(y=0, color='r', linestyle='--', label='ΔV(x) = 0')
+        ax2.set_title(f'Change in Lyapunov Function (Run: {run_name}, Alpha: {alpha})')
+        ax2.set_xlabel('State Index')
+        ax2.set_ylabel('ΔV(x)')
+        ax2.legend()
+        ax2.grid(True)
+
+        # Plot V(x) vs ΔV(x)
+        ax3.scatter(V_values.cpu().numpy(), delta_V.cpu().numpy(), alpha=0.6)
+        ax3.axhline(y=0, color='r', linestyle='--', label='ΔV(x) = 0')
+        ax3.axvline(x=0, color='g', linestyle='--', label='V(x) = 0')
+        ax3.set_title(f'V(x) vs ΔV(x) (Run: {run_name}, Alpha: {alpha})')
+        ax3.set_xlabel('V(x)')
+        ax3.set_ylabel('ΔV(x)')
+        ax3.legend()
+        ax3.grid(True)
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_path, f'lyapunov_properties_{run_name}_alpha_{alpha}.png'))
+        plt.close()
+
+        positive_definite = (V_values > 0).float().mean()
+        decreasing = (delta_V < 0).float().mean()
+
+        print(f"Positive definite: {positive_definite.item():.2%}")
+        print(f"Decreasing: {decreasing.item():.2%}")
+
+        return positive_definite.item(), decreasing.item()
+    def plot_equilibrium_points(self, features, run_name, alpha):
+        infected = [f[0] for f in features]
+        risk = [f[1] for f in features]
+
+        plt.figure(figsize=(10, 8))
+        plt.scatter(risk, infected, c=infected, cmap='viridis', alpha=0.6)
+        plt.colorbar(label='Number of Infected')
+        plt.xlabel('Community Risk')
+        plt.ylabel('Number of Infected')
+        plt.title(f'Equilibrium Points: DFE and EE Regions (Run: {run_name}, Alpha: {alpha})')
+
+        # Define DFE and EE regions
+        plt.axhline(y=0.5, color='r', linestyle='--', label='DFE/EE Boundary')
+        plt.text(0.5, 0.25, 'DFE Region', horizontalalignment='center')
+        plt.text(0.5, 0.75, 'EE Region', horizontalalignment='center')
+
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_path, f'equilibrium_points_{run_name}_alpha_{alpha}.png'))
+        plt.close()
+
+    def plot_lyapunov_change(self, V, features, run_name, alpha):
+        infected = np.linspace(0, 100, 50)
+        risk = np.linspace(0, 1, 50)
+        X, Y = np.meshgrid(infected, risk)
+        states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
+
+        with torch.no_grad():
+            V_values = V(states).squeeze().cpu().numpy().reshape(X.shape)
+            next_states = self.get_next_states(states, alpha)
+            V_next_values = V(next_states).squeeze().cpu().numpy().reshape(X.shape)
+            delta_V = V_next_values - V_values
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+
+        im1 = ax1.imshow(V_values, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='viridis')
+        ax1.set_title(f'Lyapunov Function V(x) (Run: {run_name}, Alpha: {alpha})')
+        ax1.set_xlabel('Infected')
+        ax1.set_ylabel('Community Risk')
+        fig.colorbar(im1, ax=ax1, label='V(x)')
+
+        im2 = ax2.imshow(delta_V, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='coolwarm')
+        ax2.set_title(f'Change in Lyapunov Function ΔV(x) (Run: {run_name}, Alpha: {alpha})')
+        ax2.set_xlabel('Infected')
+        ax2.set_ylabel('Community Risk')
+        fig.colorbar(im2, ax=ax2, label='ΔV(x)')
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_path, f'lyapunov_change_{run_name}_alpha_{alpha}.png'))
+        plt.close()
+
+
+
+    def analyze_markov_chain_stability(self, states, next_states, run_name):
+        """Analyze the Markov Chain stability by computing the transition matrix and stationary distribution."""
+        # Convert states and next_states to tuples for consistency
+        states = [tuple(state) for state in states]
+        next_states = [tuple(next_state) for next_state in next_states]
+
+        # Identify unique states and create a mapping to indices
+        unique_states = sorted(set(states + next_states))
+        state_to_index = {state: i for i, state in enumerate(unique_states)}
+
+        # Initialize the transition matrix
+        num_states = len(unique_states)
+        P = np.zeros((num_states, num_states))
+
+        # Populate the transition matrix based on state transitions
+        for state, next_state in zip(states, next_states):
+            P[state_to_index[state], state_to_index[next_state]] += 1
+
+        # Normalize each row to obtain the transition probabilities
+        P = P / P.sum(axis=1, keepdims=True)
+
+        # Check for irreducibility and aperiodicity
+        is_irreducible = self.verify_irreducibility(P)
+        is_aperiodic = self.verify_aperiodicity(P)
+        is_ergodic = is_irreducible and is_aperiodic
+
+        # Log the results
+        stability_log_path = os.path.join(self.save_path, f'markov_chain_stability_{run_name}.txt')
+        with open(stability_log_path, 'w') as f:
+            f.write(f"Markov Chain Stability Analysis:\n")
+            f.write(f"Irreducible: {'Yes' if is_irreducible else 'No'}\n")
+            f.write(f"Aperiodic: {'Yes' if is_aperiodic else 'No'}\n")
+            f.write(f"Ergodic: {'Yes' if is_ergodic else 'No'}\n")
+
+        return P, is_ergodic
+
+    def verify_aperiodicity(self,P):
+        """
+        Check if the transition matrix P is aperiodic.
+        Aperiodicity means that the greatest common divisor of the lengths of all cycles is 1.
+
+        Args:
+            P (np.array): Transition matrix of the Markov chain.
+
+        Returns:
+            bool: True if the chain is aperiodic, False otherwise.
+        """
+        # Check if all diagonal elements are greater than zero
+        return np.all(np.diag(P) > 0)
+
+    def verify_irreducibility(self, P):
+        """
+        Check if the transition matrix P is irreducible.
+        Irreducibility means that every state can be reached from every other state.
+
+        Args:
+            P (np.array): Transition matrix of the Markov chain.
+
+        Returns:
+            bool: True if the chain is irreducible, False otherwise.
+        """
+        num_states = P.shape[0]
+        # Raise P to the power of the number of states
+        P_power = np.linalg.matrix_power(P, num_states)
+
+        # Check if all elements are positive
+        return np.all(P_power > 0)
+
+    def verify_ergodicity(self, P):
+        """Check if the Markov Chain is ergodic (irreducible and aperiodic)."""
+        num_states = P.shape[0]
+        # Check for irreducibility: all states should communicate
+        irreducible = np.all(np.linalg.matrix_power(P, num_states) > 0)
+        # Check for aperiodicity: the greatest common divisor of the cycle lengths is 1
+        aperiodic = np.all(np.diag(P) > 0)
+        return irreducible and aperiodic
+
+
+
+
+    def calculate_stationary_distribution(self, states, next_states):
+        unique_states = sorted(set([tuple(state) for state in states + next_states]))
+        state_to_idx = {state: idx for idx, state in enumerate(unique_states)}
+        num_states = len(unique_states)
+
+        # Initialize the transition matrix
+        P = np.zeros((num_states, num_states))
+
+        # Fill the transition matrix
+        for current_state, next_state in zip(states, next_states):
+            i = state_to_idx[tuple(current_state)]
+            j = state_to_idx[tuple(next_state)]
+            P[i, j] += 1
+
+        # Handle rows with zero sum to prevent division by zero
+        for i in range(num_states):
+            if P[i].sum() == 0:
+                P[i] = np.ones(num_states) / num_states  # Assign uniform probability to all transitions
+
+        # Normalize rows to get probabilities
+        P = P / (P.sum(axis=1, keepdims=True) + 1e-10)  # Adding a small epsilon to avoid division by zero
+
+        # Replace any NaNs or Infs in the transition matrix with zeros
+        P = np.nan_to_num(P, nan=0.0, posinf=0.0, neginf=0.0)
+
+        print(f"Normalized Transition Matrix:\n{P}")
+
+        # Solve for the stationary distribution
+        eigvals, eigvecs = np.linalg.eig(P.T)
+        print(f"Eigenvalues of Transition Matrix:\n{eigvals}")
+
+        # Identify the eigenvectors corresponding to an eigenvalue of 1
+        close_to_one = np.isclose(eigvals, 1)
+
+        if not np.any(close_to_one):
+            raise ValueError("No eigenvalues close to 1 found; unable to compute stationary distribution.")
+
+        stationary_distribution = eigvecs[:, close_to_one]
+
+        if stationary_distribution.size == 0:
+            raise ValueError(
+                "Stationary distribution is empty. This might indicate a problem with the transition matrix.")
+
+        stationary_distribution = stationary_distribution[:, 0]
+        stationary_distribution = stationary_distribution / stationary_distribution.sum()
+
+        return unique_states, stationary_distribution
+
+    def determine_stochastic_stability(self, stationary_distribution, unique_states):
+        """Determine the stochastic stability of DFE, EE, or both (bistability)."""
+        dfe_states = [state for state in unique_states if state[0] == 0]  # DFE where infected = 0
+        ee_states = [state for state in unique_states if state[0] > 0]  # EE where infected > 0
+
+        mu_dfe = sum(stationary_distribution[[unique_states.index(state) for state in dfe_states]])
+        mu_ee = sum(stationary_distribution[[unique_states.index(state) for state in ee_states]])
+
+        dfe_stability = mu_dfe > mu_ee
+        ee_stability = mu_ee > mu_dfe
+        bistability = mu_dfe == mu_ee
+
+        return dfe_stability, ee_stability, bistability
+
+    def plot_equilibrium_points_with_stationary_distribution(self, stationary_distribution, unique_states, run_name):
+        infected = np.array([state[0] for state in unique_states])
+        risk = np.array([state[1] for state in unique_states])
+
+        plt.figure(figsize=(10, 8))
+        scatter = plt.scatter(risk, infected, c=stationary_distribution, cmap='viridis', s=50, alpha=0.6)
+        plt.colorbar(scatter, label='Stationary Distribution Probability')
+        plt.xlabel('Community Risk')
+        plt.ylabel('Number of Infected')
+        plt.title(f'Equilibrium Points with Stationary Distribution (Run: {run_name})')
+
+        # Highlight DFE and EE regions
+        plt.axhline(y=0.5, color='r', linestyle='--', label='DFE/EE Boundary')
+        plt.text(0.5, 0.25, 'DFE Region', horizontalalignment='center', color='red')
+        plt.text(0.5, 0.75, 'EE Region', horizontalalignment='center', color='red')
+
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_path, f'equilibrium_points_stationary_{run_name}.png'))
+        plt.close()
+
+    def plot_transition_matrix_using_risk(self, states, next_states, community_risks, run_name,
+                                          evaluation_subdirectory):
+        """Plot and save the transition probability matrix using the extracted community risk values."""
+
+        # Convert numpy arrays to tuples to make them hashable
+        states = [tuple(state) for state in states]
+        next_states = [tuple(next_state) for next_state in next_states]
+
+        # Get unique states and map them to indices
+        unique_states = sorted(set(states + next_states))
+        state_to_idx = {state: idx for idx, state in enumerate(unique_states)}
+
+        num_states = len(unique_states)
+
+        # Initialize the transition matrix
+        P = np.zeros((num_states, num_states))
+
+        # Fill the transition matrix with community risk considerations
+        for state, next_state, risk in zip(states, next_states, community_risks):
+            transition_probability = risk  # Use community risk to weight transitions
+            P[state_to_idx[state], state_to_idx[next_state]] += transition_probability
+
+        # Normalize each row to get probabilities
+        P = P / P.sum(axis=1, keepdims=True)
+
+        # Avoid log(0) by setting a small floor value for the log scale
+        P_log = np.log10(P + 1e-10)  # Adding a small epsilon to avoid log(0)
+
+        # Plot the transition matrix with log scaling
+        plt.figure(figsize=(10, 8))
+        plt.imshow(P_log, cmap='gray', aspect='auto', origin='lower')
+        plt.colorbar(label='Log10 of Transition Probability')
+        plt.xlabel('Next State Index')
+        plt.ylabel('Current State Index')
+        plt.title(f'Transition Probability Matrix (Log Scale)\nRun: {run_name}')
+        plt.tight_layout()
+
+        # Save the plot
+        plt.savefig(os.path.join(evaluation_subdirectory, f'transition_matrix_{run_name}.png'))
+        plt.close()
+
+    def find_optimal_xy(self, infected_values, allowed_values, community_risk_values, z=95, run_name=None,
+                        evaluation_subdirectory=None):
+        # Binary search for smallest x (infection threshold)
+        low_x, high_x = 0, max(infected_values)
+        optimal_x = high_x
+
+        while low_x <= high_x:
+            mid_x = (low_x + high_x) // 2
+            time_lessthan_mid_x = sum(1 for val in infected_values if val < mid_x)
+            infection_safety_percentage = ((len(infected_values) - time_lessthan_mid_x) / len(infected_values)) * 100
+
+            if infection_safety_percentage >= z:
+                optimal_x = mid_x
+                high_x = mid_x - 1
             else:
-                f.write("The system is not stochastically stable in the Endemic Equilibrium (EE) region.\n")
+                low_x = mid_x + 1
 
-        return dfe_stable, ee_stable
+        # Binary search for largest y (allowed threshold)
+        low_y, high_y = 0, max(allowed_values)
+        optimal_y = low_y
 
-    def evaluate(self, run_name, num_episodes=1, alpha=0.5, csv_path=None, x=10, y=50, z=90):
+        while low_y <= high_y:
+            mid_y = (low_y + high_y) // 2
+            time_with_mid_y_present = sum(1 for val in allowed_values if val >= mid_y)
+            attendance_safety_percentage = (time_with_mid_y_present / len(allowed_values)) * 100
+
+            if attendance_safety_percentage >= z:
+                optimal_y = mid_y
+                low_y = mid_y + 1
+            else:
+                high_y = mid_y - 1
+
+        # Plotting the safety conditions
+        if run_name and evaluation_subdirectory:
+            plt.figure(figsize=(10, 6))
+            plt.scatter(allowed_values, infected_values, color='blue', label='State Points')
+            plt.axhline(y=optimal_x, color='red', linestyle='--', label=f'Infection Threshold (x={optimal_x})')
+            plt.axvline(x=optimal_y, color='green', linestyle='--', label=f'Attendance Threshold (y={optimal_y})')
+            plt.xlabel('Allowed Students')
+            plt.ylabel('Infected Individuals')
+            plt.legend()
+            plt.title(f'Safety Set Identification - {run_name}')
+            plt.grid(True)
+            plt.savefig(os.path.join(evaluation_subdirectory, f'safety_set_plot_{run_name}.png'))
+            plt.close()
+
+        return optimal_x, optimal_y
+
+    def simulate_steady_state(self, num_simulations=10000, num_steps=100, alpha=0.5):
+        """
+        Simulate the system for a long time to estimate the steady-state distribution.
+
+        Args:
+        num_simulations (int): Number of independent simulations to run.
+        num_steps (int): Number of steps for each simulation.
+        alpha (float): The alpha parameter for the policy.
+
+        Returns:
+        numpy.ndarray: Array of final states from all simulations.
+        """
+        final_states = []
+
+        for _ in range(num_simulations):
+            infected = np.random.uniform(0, 100)  # Initial infected count
+            risk = np.random.uniform(0, 1)  # Initial community risk
+
+            for _ in range(num_steps):
+                state = torch.tensor([infected, risk], dtype=torch.float32)
+
+                with torch.no_grad():
+                    q_values = self.model(state.unsqueeze(0))
+                    action = q_values.argmax().item()
+                    allowed_value = action * 50  # Convert to allowed values (0, 50, 100)
+
+                alpha_infection = 0.005
+                beta_infection = 0.01
+
+                new_infected = ((alpha_infection * infected) * allowed_value) + \
+                               ((beta_infection * risk) * allowed_value ** 2)
+
+                infected = min(new_infected, allowed_value)
+                risk = np.random.uniform(0, 1)  # Assuming risk is randomly distributed each step
+
+            final_states.append([infected, risk])
+
+        return np.array(final_states)
+
+    def plot_simulated_steady_state(self, final_states, run_name, alpha):
+        """
+        Plot the simulated steady-state distribution.
+
+        Args:
+        final_states (numpy.ndarray): Array of final states from simulations.
+        run_name (str): Name of the current run for saving the plot.
+        alpha (float): The alpha parameter used in the simulation.
+        """
+        plt.figure(figsize=(10, 8))
+
+        # Calculate the 2D histogram
+        hist, xedges, yedges = np.histogram2d(final_states[:, 1], final_states[:, 0], bins=50,
+                                              range=[[0, 1], [0, 100]])
+
+        # Plot the 2D histogram
+        plt.imshow(hist.T, origin='lower', aspect='auto',
+                   extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+                   cmap='viridis')
+
+        plt.colorbar(label='Frequency')
+        plt.xlabel('Community Risk')
+        plt.ylabel('Infected Individuals')
+        plt.title(f'Simulated Steady-State Distribution\nRun: {run_name}, Alpha: {alpha}')
+
+        # Save the plot
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_path, f'simulated_steady_state_{run_name}_alpha_{alpha}.png'))
+        plt.close()
+
+    def evaluate(self, run_name, num_episodes=1, x_value=38, y_value=80, z=95, alpha=0.5, csv_path=None):
+        # print('Alpha from main:', alpha)
         model_subdirectory = os.path.join(self.model_directory, self.agent_type, run_name)
         model_file_path = os.path.join(model_subdirectory, f'model.pt')
         results_directory = self.results_subdirectory
@@ -1261,19 +1478,22 @@ class DQNCustomAgent:
         if not os.path.exists(model_file_path):
             raise FileNotFoundError(f"Model file not found in {model_file_path}")
 
-        self.model.load_state_dict(torch.load(model_file_path))
+        self.model.load_state_dict(torch.load(model_file_path, map_location='cpu'))
         self.model.eval()
         print(f"Loaded model from {model_file_path}")
 
         if csv_path:
             self.community_risk_values = self.read_community_risk_from_csv(csv_path)
             self.max_weeks = len(self.community_risk_values)
-            print(f"Community Risk Values: {self.community_risk_values}")
+            # print(f"Community Risk Values: {self.community_risk_values}")
 
         total_rewards = []
         evaluation_subdirectory = os.path.join(results_directory, run_name)
         os.makedirs(evaluation_subdirectory, exist_ok=True)
         csv_file_path = os.path.join(evaluation_subdirectory, f'evaluation_metrics_{run_name}.csv')
+
+        safety_log_path = os.path.join(evaluation_subdirectory, f'safety_conditions_{run_name}.csv')
+        interpretation_path = os.path.join(evaluation_subdirectory, f'safety_conditions_interpretation_{run_name}.txt')
 
         allowed_values_over_time = []
         infected_values_over_time = []
@@ -1282,108 +1502,153 @@ class DQNCustomAgent:
             writer = csv.writer(file)
             writer.writerow(['Episode', 'Step', 'State', 'Action', 'Community Risk', 'Total Reward'])
 
-            for episode in range(num_episodes):
-                initial_infection_count = 20
-                initial_community_risk = self.community_risk_values[0] if csv_path else 0
-                state = np.array([initial_infection_count, int(initial_community_risk * 100)], dtype=np.float32)
-                print(f"Initial state for episode {episode + 1}: {state}")
-                total_reward = 0
-                done = False
-                step = 0
+            with open(safety_log_path, mode='w', newline='') as safety_file, open(interpretation_path,
+                                                                                  mode='w') as interpretation_file:
+                safety_writer = csv.writer(safety_file)
+                safety_writer.writerow(['Episode', 'Infections > 30 (%)', 'Safety Condition Met (Infection)',
+                                        'Allowed Students ≥ 100 (%)', 'Safety Condition Met (Attendance)'])
 
-                while not done:
-                    with torch.no_grad():
-                        state_tensor = torch.FloatTensor(state).unsqueeze(0)
-                        q_values = self.model(state_tensor)
-                        actions = q_values.argmax(dim=1).cpu().numpy()
-                        actions = [action * 50 for action in actions]
+                states = []
+                next_states = []
+                community_risks = []
 
-                    next_state, reward, done, _, info = self.env.step((actions, alpha))
-                    next_state = np.array(next_state, dtype=np.float32)
-                    total_reward += reward
+                for episode in range(num_episodes):
+                    initial_infection_count = 20
+                    initial_community_risk = self.community_risk_values[0] if csv_path else 0
+                    state = np.array([initial_infection_count, int(initial_community_risk * 100)], dtype=np.float32)
+                    print(f"Initial state for episode {episode + 1}: {state}")
+                    total_reward = 0
+                    done = False
+                    step = 0
 
-                    writer.writerow(
-                        [episode + 1, step + 1, int(state[0]), actions[0], info['community_risk'], reward]
+                    while not done:
+                        with torch.no_grad():
+                            state_tensor = torch.FloatTensor(state).unsqueeze(0)
+                            q_values = self.model(state_tensor)
+                            actions = q_values.argmax(dim=1).cpu().numpy()
+                            actions = [action * 50 for action in actions]
+
+                        next_state, reward, done, _, info = self.env.step((actions, alpha))
+                        next_state = np.array(next_state, dtype=np.float32)
+                        total_reward += reward
+                        states.append(state)
+                        next_states.append(next_state)
+                        community_risks.append(info['community_risk'])
+
+                        writer.writerow(
+                            [episode + 1, step + 1, int(state[0]), actions[0], info['community_risk'], reward]
+                        )
+
+                        if episode == 0:
+                            allowed_values_over_time.append(actions[0])
+                            infected_values_over_time.append(next_state[0])
+
+                        state = next_state
+                        step += 1
+
+                    total_rewards.append(total_reward)
+                    print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+
+                    # Ensure all arrays have the same length
+                    min_length = min(len(allowed_values_over_time), len(infected_values_over_time),
+                                     len(self.community_risk_values))
+                    allowed_values_over_time = allowed_values_over_time[:min_length]
+                    infected_values_over_time = infected_values_over_time[:min_length]
+                    community_risk_values = self.community_risk_values[:min_length]
+
+                    # Calculate the percentage of time infections exceed the threshold
+                    time_exceeding_x = sum(1 for val in infected_values_over_time if val > x_value)
+                    time_within_x = len(infected_values_over_time) - time_exceeding_x
+                    infection_safety_percentage = (time_within_x / len(infected_values_over_time)) * 100
+
+                    time_with_y_present = sum(1 for val in allowed_values_over_time if val >= y_value)
+                    attendance_safety_percentage = (time_with_y_present / len(allowed_values_over_time)) * 100
+
+                    # Determine if the safety conditions are met
+                    infection_condition_met = infection_safety_percentage >= (
+                                100 - z)  # At least 95% of time within safe infection range
+                    attendance_condition_met = attendance_safety_percentage >= z  # At least 95% of time with sufficient attendance
+
+                    # Log the safety condition results in the table
+                    safety_writer.writerow([
+                        episode + 1,
+                        100 - infection_safety_percentage,  # Record time exceeding safety threshold
+                        'Yes' if infection_condition_met else 'No',
+                        attendance_safety_percentage,
+                        'Yes' if attendance_condition_met else 'No'
+                    ])
+
+                    # Write the interpretation to the text file
+                    interpretation_file.write(
+                        f"Episode {episode + 1} Interpretation:\n"
+                        f"Safety Condition: No more than {x_value} infections for {100 - z}% of time: "
+                        f"{100 - infection_safety_percentage:.2f}% -> {'Condition Met' if infection_condition_met else 'Condition Not Met'}\n"
+                        f"Safety Condition: At least {y_value} allowed students for {z}% of time: "
+                        f"{attendance_safety_percentage:.2f}% -> {'Condition Met' if attendance_condition_met else 'Condition Not Met'}\n\n"
                     )
 
-                    if episode == 0:
-                        allowed_values_over_time.append(actions[0])
-                        infected_values_over_time.append(next_state[0])
+                    # Plotting safety conditions
+                    plt.figure(figsize=(10, 6))
+                    plt.scatter(allowed_values_over_time, infected_values_over_time, color='blue', label='State Points')
+                    plt.axhline(y=x_value, color='red', linestyle='--', label=f'Infection Threshold (x={x_value})')
+                    plt.axvline(x=y_value, color='green', linestyle='--', label=f'Attendance Threshold (y={y_value})')
+                    plt.xlabel('Allowed Students')
+                    plt.ylabel('Infected Individuals')
+                    plt.legend()
+                    plt.title(f'Safety Set Identification - Episode {episode + 1}')
+                    plt.grid(True)
+                    plt.savefig(os.path.join(evaluation_subdirectory, f'safety_set_plot_episode_{run_name}.png'))
+                    plt.close()
 
-                    state = next_state
-                    step += 1
+                    # Construct CBFs using direct x and y values
+                    B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time,
+                                                evaluation_subdirectory,
+                                                x_value, y_value)
 
-                total_rewards.append(total_reward)
+                    # Verify forward invariance
+                    is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time,
+                                                                  infected_values_over_time, evaluation_subdirectory)
 
-                print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+                    # Construct the Lyapunov function
+                    features = list(zip(allowed_values_over_time, infected_values_over_time, community_risks))
+                    V, theta, loss_values = self.construct_lyapunov_function(features, alpha)
 
-            avg_reward = np.mean(total_rewards)
-        print(f"Cumulative Reward over {num_episodes} episodes: {sum(total_rewards)}")
 
-        min_length = min(len(allowed_values_over_time), len(infected_values_over_time), len(self.community_risk_values))
-        allowed_values_over_time = allowed_values_over_time[:min_length]
-        infected_values_over_time = infected_values_over_time[:min_length]
-        community_risk_values = self.community_risk_values[:min_length]
-        weeks = range(1, min_length + 1)
+                    self.plot_loss_function(loss_values, alpha, run_name)
+                    self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
+                    self.plot_lyapunov_change(V, features, run_name, alpha)
+                    self.plot_equilibrium_points(features, run_name, alpha)
+                    self.plot_lyapunov_properties(V, features, run_name, alpha)
+                    # Calculate the stationary distribution and unique states
+                    unique_states, stationary_distribution = self.calculate_stationary_distribution(states, next_states)
 
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
+                    # Plot the equilibrium points with the stationary distribution
+                    self.plot_equilibrium_points_with_stationary_distribution(stationary_distribution, unique_states,
+                                                                              run_name)
 
-        sns.lineplot(x=weeks, y=community_risk_values,
-                     marker='s', linestyle='--', color='darkgreen', linewidth=2.5, ax=ax1)
-        ax1.set_xlabel('Week')
-        ax1.set_ylabel('Community Risk', color='darkgreen')
-        ax1.tick_params(axis='y', labelcolor='darkgreen')
+                    # After all episodes have been evaluated and the CSV file has been saved, call the transition matrix plotting function
+                    self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name,
+                                                           evaluation_subdirectory)
+                    # Call find_optimal_xy to determine the best x and y and plot the safety conditions
+                    optimal_x, optimal_y = self.find_optimal_xy(infected_values_over_time, allowed_values_over_time,
+                                                           self.community_risk_values, z, run_name,
+                                                           evaluation_subdirectory)
+                    final_states = self.simulate_steady_state(alpha=alpha)
+                    self.plot_simulated_steady_state(final_states, run_name, alpha)
 
-        ax2.bar(weeks, allowed_values_over_time,
-                color='blue', alpha=0.6, width=0.4, align='center', label='Allowed')
-        ax2.bar(weeks, infected_values_over_time,
-                color='red', alpha=0.6, width=0.4, align='edge', label='Infected')
-        ax2.set_xlabel('Week')
-        ax2.set_ylabel('Allowed and Infected Values')
-        ax2.legend(loc='upper left')
+                    print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
 
-        ticks = range(0, min_length, max(1, min_length // 10))
-        labels = [f'Week {i + 1}' for i in ticks]
+            # Save final results
+            with open(os.path.join(evaluation_subdirectory, 'final_results.txt'), 'w') as f:
+                f.write(f"Cumulative Reward over {num_episodes} episodes: {sum(total_rewards)}\n")
+                f.write(f"Average Reward: {np.mean(total_rewards)}\n")
+                f.write(
+                    f"Safety Percentage for Infections > {x_value}: {100 - infection_safety_percentage:.2f}% -> {'Condition Met' if infection_condition_met else 'Condition Not Met'}\n")
+                f.write(
+                    f"Safety Percentage for Attendance ≥ {y_value}: {attendance_safety_percentage:.2f}% -> {'Condition Met' if attendance_condition_met else 'Condition Not Met'}\n")
+                f.write(f"Forward Invariance Verified: {'Yes' if is_invariant else 'No'}\n")
 
-        ax1.set_xticks(ticks)
-        ax1.set_xticklabels(labels, rotation=45)
-        ax2.set_xticks(ticks)
-        ax2.set_xticklabels(labels, rotation=45)
-
-        plt.tight_layout()
-        plt.savefig(os.path.join(evaluation_subdirectory, f"evaluation_plot_{run_name}.png"))
-        plt.show()
-
-        # Identification of Safety Set
-        infection_safe, attendance_safe = self.identify_safety_set(
-            allowed_values_over_time, infected_values_over_time, x, y, z, evaluation_subdirectory
-        )
-
-        # Construction of Control Barrier Functions
-        B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time, evaluation_subdirectory, x, y)
-
-        # Verification of Forward Invariance
-        is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time, infected_values_over_time,
-                                                      evaluation_subdirectory)
-
-        # Lyapunov Function and Stability Analysis
-        features = self.extract_features(allowed_values_over_time, infected_values_over_time)
-        V, theta, loss_values = self.construct_lyapunov_function(features, evaluation_subdirectory)
-        self.plot_lyapunov_loss(loss_values, evaluation_subdirectory)
-        dfe_stable, ee_stable = self.verify_lyapunov_stability(V, features, evaluation_subdirectory)
-        self.plot_lyapunov_function_with_context(V, features, "DQN Evaluation", evaluation_subdirectory)
-
-        # Save final results
-        with open(os.path.join(evaluation_subdirectory, 'final_results.txt'), 'w') as f:
-            f.write(f"Cumulative Reward over {num_episodes} episodes: {sum(total_rewards)}\n")
-            f.write(f"Average Reward: {avg_reward}\n")
-            f.write(f"Safety Set Invariance for Infections <= {x}: {'Passed' if infection_safe else 'Failed'}\n")
-            f.write(f"Safety Set Invariance for Attendance <= {y}: {'Passed' if attendance_safe else 'Failed'}\n")
-            f.write(f"Forward Invariance Verified: {'Yes' if is_invariant else 'No'}\n")
-            f.write(f"Stochastic Stability in DFE region: {'Stable' if dfe_stable else 'Unstable'}\n")
-            f.write(f"Stochastic Stability in EE region: {'Stable' if ee_stable else 'Unstable'}\n")
-
-        return avg_reward
+        return total_rewards
 
 
 def load_saved_model(model_directory, agent_type, run_name, input_dim, hidden_dim, action_space_nvec):
@@ -1427,8 +1692,6 @@ def calculate_explained_variance(actual_rewards, predicted_rewards):
     variance_unexplained = np.var(actual_rewards - predicted_rewards, ddof=1)
     explained_variance = 1 - (variance_unexplained / variance_actual)
     return explained_variance
-
-
 def visualize_explained_variance(explained_variance_per_episode, output_path):
     plt.figure(figsize=(10, 6))
     plt.plot(explained_variance_per_episode, label='Explained Variance')
@@ -1439,120 +1702,3 @@ def visualize_explained_variance(explained_variance_per_episode, output_path):
     plt.grid(True)
     plt.savefig(output_path)
     plt.close()
-
-def eval_with_csv(self, alpha, episodes, csv_path):
-    community_risk_df = pd.read_csv(csv_path)
-    community_risk_values = community_risk_df['community_risk'].tolist()
-
-    total_class_capacity_utilized = 0
-    last_action = None
-    policy_changes = 0
-    total_reward = 0
-    rewards = []
-    infected_dict = {}
-    allowed_dict = {}
-    rewards_dict = {}
-    community_risk_dict = {}
-    eval_dir = 'evaluation'
-    if not os.path.exists(eval_dir):
-        os.makedirs(eval_dir)
-
-    eval_file_path = os.path.join(eval_dir, f'eval_policies_data_aaai_multi.csv')
-    if not os.path.isfile(eval_file_path):
-        with open(eval_file_path, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(['Alpha', 'Episode', 'Step', 'Infections', 'Allowed', 'Reward', 'CommunityRisk'])
-
-    for episode in tqdm(range(episodes)):
-        state, _ = self.env.reset()
-        c_state = state if isinstance(state, (list, np.ndarray)) else [state]
-        terminated = False
-        episode_reward = 0
-        episode_infections = 0
-        infected = []
-        allowed = []
-        community_risk = []
-        eps_rewards = []
-
-        for step, comm_risk in enumerate(community_risk_values):
-            if terminated:
-                break
-            converted_state = str(tuple(c_state))
-            state_idx = self.all_states.index(converted_state)
-
-            action = np.argmax(self.q_table[state_idx])
-
-            list_action = list(eval(self.all_actions[action]))
-            c_list_action = [i * 50 for i in list_action]
-
-            action_alpha_list = [*c_list_action, alpha]
-            self.env.campus_state.community_risk = comm_risk
-
-            next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
-            eps_rewards.append(reward)
-            infected.append(info['infected'])
-            allowed.append(info['allowed'])
-            community_risk.append(info['community_risk'])
-            episode_infections += sum(info['infected'])
-
-            if last_action is not None and last_action != action:
-                policy_changes += 1
-                last_action = action
-
-            total_class_capacity_utilized += sum(info['allowed'])
-
-            c_state = next_state
-
-        infected_dict[episode] = infected
-        allowed_dict[episode] = allowed
-        rewards_dict[episode] = eps_rewards
-        community_risk_dict[episode] = community_risk
-
-    print("infected: ", infected_dict, "allowed: ", allowed_dict, "rewards: ", rewards_dict, "community_risk: ",
-              community_risk_dict)
-    for episode in infected_dict:
-        plt.figure(figsize=(15, 5))
-        infections = [inf[0] for inf in infected_dict[episode]] if episode in infected_dict else []
-        allowed_students = [alw[0] for alw in allowed_dict[episode]] if episode in allowed_dict else []
-        rewards = rewards_dict[episode] if episode in rewards_dict else []
-        community_risk = community_risk_dict[episode] if episode in community_risk_dict else []
-
-        steps = np.arange(len(infections))
-
-        bar_width = 0.4
-        offset = bar_width / 4
-
-        plt.bar(steps - offset, infections, width=bar_width, label='Infections', color='#bc5090', align='center')
-        plt.bar(steps + offset, allowed_students, width=bar_width, label='Allowed Students', color='#003f5c',
-                    alpha=0.5, align='edge')
-        plt.plot(steps, rewards, label='Rewards', color='#ffa600', linestyle='-', marker='o')
-
-        plt.xlabel('Step')
-        plt.ylabel('Count')
-        plt.title(f'Evaluation of agent {self.run_name} Policy for {episode} episodes')
-        plt.legend()
-        plt.tight_layout()
-
-        fig_path = os.path.join(eval_dir, f'{self.run_name}_metrics.png')
-        plt.savefig(fig_path)
-        print(f"Figure saved to {fig_path}")
-
-        plt.close()
-
-    with open(eval_file_path, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        for episode in tqdm(range(episodes)):
-            for step in range(len(infected_dict[episode])):
-                writer.writerow([
-                        alpha,
-                        episode,
-                        step,
-                        infected_dict[episode][step],
-                        allowed_dict[episode][step],
-                        rewards_dict[episode][step],
-                        community_risk_dict[episode][step]
-                    ])
-
-    print(f"Data for alpha {alpha} appended to {eval_file_path}")
-
-    return infected_dict, allowed_dict, rewards_dict, community_risk_dict
