@@ -72,34 +72,91 @@ class LyapunovNet(nn.Module):
         return out
 
 
-class DeepQNetwork(nn.Module):
-    def __init__(self, input_dim, hidden_dim, out_dim):
-        super(DeepQNetwork, self).__init__()
-        num_layers = 5  # Number of hidden layers
-        # Create a list to hold the layers
+class ActorNetwork(nn.Module):
+    def __init__(self, input_dim, hidden_units, output_dim):
+        super(ActorNetwork, self).__init__()
+        if isinstance(hidden_units, int):
+            hidden_units = [hidden_units]
+
+        self.input_dim = input_dim
+        self.hidden_units = hidden_units
+        self.output_dim = output_dim
+
         layers = []
-
-        # Add the first layer with input_dim
-        layers.append(nn.Linear(input_dim, hidden_dim))
-        layers.append(nn.ReLU())
-
-        # Add additional hidden layers
-        for _ in range(num_layers - 1):  # num_layers includes the first layer
-            layers.append(nn.Linear(hidden_dim, hidden_dim))
+        prev_dim = input_dim
+        for i, hidden_dim in enumerate(hidden_units):
+            layer = nn.Linear(prev_dim, hidden_dim)
+            setattr(self, f'fc{i + 1}', layer)  # This allows access to fc1, fc2, etc.
+            layers.append(layer)
             layers.append(nn.ReLU())
+            prev_dim = hidden_dim
 
-        # Use nn.Sequential to define the encoder with the specified number of layers
-        self.encoder = nn.Sequential(*layers)
+        self.output_layer = nn.Linear(prev_dim, output_dim)
+        setattr(self, f'fc{len(hidden_units) + 1}', self.output_layer)  # This will be fc3 in the original setup
 
-        # Define the output layer
-        self.out = nn.Linear(hidden_dim, out_dim)
+        self.network = nn.Sequential(*layers, self.output_layer)
+        self.init_weights()
 
-    def forward(self, x):
-        h_prime = self.encoder(x)
-        Q_values = self.out(h_prime)
-        return Q_values
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.orthogonal_(m.weight)
+                nn.init.constant_(m.bias, 0)
 
-class DQNCustomAgent:
+    def forward(self, state):
+        x = self.network(state)
+        action_probs = F.softmax(x, dim=-1)
+        return action_probs
+
+
+class CriticNetwork(nn.Module):
+    def __init__(self, input_dim, hidden_units, output_dim=1):
+        super(CriticNetwork, self).__init__()
+        if isinstance(hidden_units, int):
+            hidden_units = [hidden_units]
+
+        self.input_dim = input_dim
+        self.hidden_units = hidden_units
+        self.output_dim = output_dim
+
+        layers = []
+        prev_dim = input_dim
+        for i, hidden_dim in enumerate(hidden_units):
+            layer = nn.Linear(prev_dim, hidden_dim)
+            setattr(self, f'fc{i + 1}', layer)  # This allows access to fc1, fc2, etc.
+            layers.append(layer)
+            layers.append(nn.ReLU())
+            prev_dim = hidden_dim
+
+        self.output_layer = nn.Linear(prev_dim, output_dim)
+        setattr(self, f'fc{len(hidden_units) + 1}', self.output_layer)  # This will be fc3 in the original setup
+
+        self.network = nn.Sequential(*layers, self.output_layer)
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.orthogonal_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+    def forward(self, state):
+        state_value = self.network(state)
+        return state_value
+
+class PPONetwork(nn.Module):
+    def __init__(self, input_dim, actor_hidden_units, critic_hidden_units, output_dim):
+        super(PPONetwork, self).__init__()
+        self.actor = ActorNetwork(input_dim, actor_hidden_units, output_dim)
+        self.critic = CriticNetwork(input_dim, critic_hidden_units)
+
+    def forward(self, state):
+        action_probs = self.actor(state)
+        state_value = self.critic(state)
+        return action_probs, state_value
+
+
+class PPOCustomAgent:
     def __init__(self, env, run_name, shared_config_path, agent_config_path=None, override_config=None, csv_path=None):
         # Load Shared Config
         self.shared_config = load_config(shared_config_path)
@@ -124,7 +181,7 @@ class DQNCustomAgent:
 
         # Create a unique subdirectory for each run to avoid overwriting results
         self.timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.agent_type = "dqn_custom"
+        self.agent_type = "ppo_custom"
         self.run_name = run_name
         self.results_subdirectory = os.path.join(self.results_directory, self.agent_type, self.run_name)
         if not os.path.exists(self.results_subdirectory):
@@ -149,16 +206,53 @@ class DQNCustomAgent:
         self.hidden_dim = self.agent_config['agent']['hidden_units']
         self.num_courses = self.env.action_space.nvec[0]
 
-        self.model = DeepQNetwork(self.input_dim, self.hidden_dim, self.output_dim)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.agent_config['agent']['learning_rate'])
+        # Replace DQN model with Actor and Critic networks
+        self.actor = ActorNetwork(self.input_dim, self.hidden_dim, self.output_dim)
+        self.critic = CriticNetwork(self.input_dim, self.hidden_dim)
+
 
         # Initialize agent-specific configurations and variables
 
+        # Initialize Actor-Critic specific parameters
         self.max_episodes = self.agent_config['agent']['max_episodes']
         self.discount_factor = self.agent_config['agent']['discount_factor']
         self.exploration_rate = self.agent_config['agent']['exploration_rate']
         self.min_exploration_rate = self.agent_config['agent']['min_exploration_rate']
         self.exploration_decay_rate = self.agent_config['agent']['exploration_decay_rate']
+
+        # New Actor-Critic specific parameters
+        self.actor_learning_rate = self.agent_config['agent']['actor_learning_rate']
+        self.critic_learning_rate = self.agent_config['agent']['critic_learning_rate']
+        self.actor_learning_rate_decay = self.agent_config['agent']['actor_learning_rate_decay']
+        self.critic_learning_rate_decay = self.agent_config['agent']['critic_learning_rate_decay']
+        self.min_actor_learning_rate = self.agent_config['agent']['min_actor_learning_rate']
+        self.min_critic_learning_rate = self.agent_config['agent']['min_critic_learning_rate']
+        self.entropy_coefficient = self.agent_config['agent']['entropy_coefficient']
+        self.value_coefficient = self.agent_config['agent']['value_coefficient']
+        self.max_grad_norm = self.agent_config['agent']['max_grad_norm']
+        self.gae_lambda = self.agent_config['agent']['gae_lambda']
+        self.clip_range = self.agent_config['agent']['clip_range']
+
+        # Initialize Actor and Critic networks
+        self.actor = ActorNetwork(self.input_dim, self.hidden_dim, self.output_dim)
+        self.critic = CriticNetwork(self.input_dim, self.hidden_dim)
+
+        # Initialize optimizers
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=self.actor_learning_rate)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=self.critic_learning_rate)
+
+        # Initialize learning rate schedulers
+        self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1,
+                                                         gamma=self.actor_learning_rate_decay)
+        self.critic_scheduler = optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=1,
+                                                          gamma=self.critic_learning_rate_decay)
+
+        # Retain other relevant initializations
+        self.decay_handler = ExplorationRateDecay(self.max_episodes, self.min_exploration_rate, self.exploration_rate)
+        self.decay_function = self.agent_config['agent']['e_decay_function']
+        self.softmax_temperature = self.agent_config['agent']['softmax_temperature']
+
+
         self.possible_actions = [list(range(0, (k))) for k in self.env.action_space.nvec]
         self.all_actions = [str(i) for i in list(itertools.product(*self.possible_actions))]
 
@@ -168,14 +262,71 @@ class DQNCustomAgent:
         self.prev_moving_avg = -float(
             'inf')  # Initialize to negative infinity to ensure any reward is considered an improvement in the first episode.
 
+        # PPO-specific parameters
+        self.clip_range = self.agent_config['agent']['clip_range']
+        self.n_epochs = self.agent_config['agent']['n_epochs']
+        self.batch_size = self.agent_config['agent']['batch_size']
+        self.update_interval = self.agent_config['agent']['update_interval']
+        self.mini_batch_size = self.agent_config['agent']['mini_batch_size']
+        self.gae_lambda = self.agent_config['agent']['gae_lambda']
+
+        # Early stopping
+        self.early_stopping_patience = self.agent_config['agent']['early_stopping_patience']
+        self.early_stopping_threshold = self.agent_config['agent']['early_stopping_threshold']
+
+        # Logging and evaluation
+        self.log_interval = self.agent_config['agent']['log_interval']
+        self.eval_interval = self.agent_config['agent']['eval_interval']
+        self.num_eval_episodes = self.agent_config['agent']['num_eval_episodes']
+
+        # Network architecture
+        self.actor_hidden_units = self.agent_config['agent']['actor_hidden_units']
+        self.critic_hidden_units = self.agent_config['agent']['critic_hidden_units']
+
+        if isinstance(self.actor_hidden_units, int):
+            self.actor_hidden_units = [self.actor_hidden_units]
+        if isinstance(self.critic_hidden_units, int):
+            self.critic_hidden_units = [self.critic_hidden_units]
+
+        # Learning rate for PPO network
+        self.learning_rate = self.agent_config['agent']['learning_rate']
+
+        # Update network initializations if using separate architectures
+        self.actor = ActorNetwork(self.input_dim, self.actor_hidden_units, self.output_dim)
+        self.critic = CriticNetwork(self.input_dim, self.critic_hidden_units, 1)
+
+        self.ppo_network = PPONetwork(self.input_dim, self.actor_hidden_units, self.critic_hidden_units, self.output_dim)
+        self.optimizer = optim.Adam(self.ppo_network.parameters(), lr=self.agent_config['agent']['learning_rate'])
+
+        # 3. Ensure consistent use of learning rate decay
+        self.learning_rate_decay = self.agent_config['agent']['learning_rate_decay']
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.learning_rate_decay)
+
+        # 4. Add initialization for reward tracking (if not present elsewhere)
+        self.episode_rewards = []
+        self.best_average_reward = -float('inf')
+
+        # 5. Initialize parameters for PPO update tracking
+        self.steps_since_update = 0
+        self.episodes_since_update = 0
+
+        # 6. Initialize storage for collected experiences
+        self.states = []
+        self.actions = []
+        self.rewards = []
+        self.dones = []
+        self.log_probs = []
+        self.values = []
+
+        # 7. Ensure the hidden_dim is consistent with actor_hidden_units
+        self.hidden_dim = self.actor_hidden_units[-1]  # Assuming the last layer size is used
+
+        # Update optimizer initialization
+        self.optimizer = optim.Adam(self.ppo_network.parameters(), lr=self.agent_config['agent']['learning_rate'])
+
         # Hidden State
         self.hidden_state = None
         self.reward_window = deque(maxlen=self.moving_average_window)
-        # Initialize the learning rate scheduler
-        self.scheduler = StepLR(self.optimizer, step_size=200, gamma=0.9)
-        self.learning_rate_decay = self.agent_config['agent']['learning_rate_decay']
-
-        self.softmax_temperature = self.agent_config['agent']['softmax_temperature']
 
         self.state_visit_counts = {}
 
@@ -220,42 +371,18 @@ class DQNCustomAgent:
         except Exception as e:
             raise ValueError(f"Error reading CSV file: {e}")
 
-    # def select_action(self, state):
-    #     if random.random() < self.exploration_rate:
-    #         return [random.randint(0, self.output_dim - 1) * 50 for _ in range(self.num_courses)]
-    #     else:
-    #         with torch.no_grad():
-    #             state = torch.FloatTensor(state).unsqueeze(0)
-    #             q_values = self.model(state)
-    #             # print(f"Q-values shape in select_action: {q_values.shape}")
-    #             # Repeat Q-values for each course
-    #             q_values = q_values.repeat(1, self.num_courses).view(self.num_courses, -1)
-    #
-    #             actions = q_values.max(1)[1].tolist()
-    #             return [action * 50 for action in actions]
-
     def select_action(self, state):
         if random.random() < self.exploration_rate:
-            return [self.scale_action(random.randint(0, self.output_dim - 1), self.output_dim) for _ in
-                    range(self.num_courses)]
+            return [self.scale_action(random.randint(0, self.output_dim - 1), self.output_dim) for _ in range(self.num_courses)]
         else:
             with torch.no_grad():
                 state = torch.FloatTensor(state).unsqueeze(0)
-                q_values = self.model(state)
+                action_probs, _ = self.ppo_network(state)
+                action_dist = torch.distributions.Categorical(action_probs)
+                action = action_dist.sample()
+                return [self.scale_action(action.item(), self.output_dim)]
 
-                # Get the index of the highest Q-value
-                action_index = q_values.argmax(dim=1).item()
 
-                # Scale the action
-                scaled_action = self.scale_action(action_index, self.output_dim)
-
-                # Debugging: Print the possible actions (indices) and corresponding Q-values
-                # print(f"Selected action index: {action_index}")
-                # print(f"Q-values: {q_values}")
-                # print(f"Scaled action: {scaled_action}")
-                # print(f"Output dimension: {self.output_dim}")
-
-                return [scaled_action]  # Return as a list to maintain consistency with the exploration case
 
     def calculate_convergence_rate(self, episode_rewards):
         # Simple example: Convergence rate is the change in reward over the last few episodes
@@ -310,7 +437,6 @@ class DQNCustomAgent:
         step_size = max_value / (num_actions - 1)
         return round(action / step_size)
 
-
     def train(self, alpha):
         start_time = time.time()
         pbar = tqdm(total=self.max_episodes, desc="Training Progress", leave=True)
@@ -320,7 +446,6 @@ class DQNCustomAgent:
         visited_state_counts = {}
         explained_variance_per_episode = []
 
-        # Initialize accumulators for allowed and infected
         allowed_means_per_episode = []
         infected_means_per_episode = []
 
@@ -333,7 +458,7 @@ class DQNCustomAgent:
         if not file_exists:
             writer.writeheader()
 
-        previous_q_values = None
+        previous_values = None
 
         for episode in range(self.max_episodes):
             self.decay_handler.set_decay_function(self.decay_function)
@@ -342,78 +467,70 @@ class DQNCustomAgent:
             total_reward = 0
             done = False
             episode_rewards = []
-            visited_states = set()  # Using a set to track unique states
-            episode_q_values = []
+            visited_states = set()
+            episode_values = []
             step = 0
-            q_value_change = 0
+            value_change = 0
             episode_allowed = []
             episode_infected = []
 
+            states, actions, rewards, dones, log_probs, values = [], [], [], [], [], []
+
             while not done:
-                actions = self.select_action(state)
-                original_actions = [self.reverse_scale_action(action, self.output_dim) for action in actions]
-                next_state, reward, done, _, info = self.env.step((actions, alpha))
+                state_tensor = torch.FloatTensor(state).unsqueeze(0)
+                with torch.no_grad():
+                    action_probs, value = self.ppo_network(state_tensor)
+                action_dist = torch.distributions.Categorical(action_probs)
+                action = action_dist.sample()
+                log_prob = action_dist.log_prob(action)
+
+                scaled_action = self.scale_action(action.item(), self.output_dim)
+                next_state, reward, done, _, info = self.env.step(([scaled_action], alpha))
                 next_state = np.array(next_state, dtype=np.float32)
 
-                # Update the total allowed and infected counts
-                episode_allowed.append(sum(info.get('allowed', [])))  # Sum all courses' allowed students
+                episode_allowed.append(sum(info.get('allowed', [])))
                 episode_infected.append(sum(info.get('infected', [])))
 
-                # original_actions = [action // 50 for action in actions]
+                states.append(state)
+                actions.append(action)
+                rewards.append(reward)
+                dones.append(done)
+                log_probs.append(log_prob)
+                values.append(value)
 
                 total_reward += reward
                 episode_rewards.append(reward)
 
-                current_q_values = self.model(torch.FloatTensor(state).unsqueeze(0)).detach().numpy()
-                if previous_q_values is not None:
-                    q_value_change += np.mean((current_q_values - previous_q_values) ** 2)
-                previous_q_values = current_q_values
-                # Update Q-values directly without replay memory or batch processing
-                state_tensor = torch.FloatTensor(state).unsqueeze(0)
-                next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0)
-                action_tensor = torch.LongTensor(original_actions)
+                if previous_values is not None:
+                    value_change += np.mean((value.detach().numpy() - previous_values) ** 2)
+                previous_values = value.detach().numpy()
 
-                current_q_values = self.model(state_tensor)
-                next_q_values = self.model(next_state_tensor)
-                # print(info)
-
-                # Handle multi-course scenario
-                num_courses = len(original_actions)
-                current_q_values = current_q_values.repeat(1, num_courses).view(num_courses, -1)
-                next_q_values = next_q_values.repeat(1, num_courses).view(num_courses, -1)
-
-                current_q_values = current_q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
-                next_q_values = next_q_values.max(1)[0]
-
-                target_q_values = reward + (1 - done) * self.discount_factor * next_q_values
-
-                loss = nn.MSELoss()(current_q_values, target_q_values)
-
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-
-                episode_q_values.extend(current_q_values.detach().numpy().tolist())
+                episode_values.extend(value.detach().numpy().tolist())
 
                 state = next_state
                 state_tuple = tuple(state)
                 visited_states.add(state_tuple)
                 visited_state_counts[state_tuple] = visited_state_counts.get(state_tuple, 0) + 1
                 step += 1
-                # print(info)
 
-            #
+            # Compute advantages and returns
+            advantages = self.compute_gae(rewards, values, dones)
+            returns = [adv + value for adv, value in zip(advantages, values)]
+
+            # PPO update
+            self.ppo_update(states, actions, log_probs, returns, advantages)
+
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
             e_mean_allowed = sum(episode_allowed) / len(episode_allowed)
             e_mean_infected = sum(episode_infected) / len(episode_infected)
             allowed_means_per_episode.append(e_mean_allowed)
             infected_means_per_episode.append(e_mean_infected)
             actual_rewards.append(episode_rewards)
-            predicted_rewards.append(episode_q_values)
+            predicted_rewards.append(episode_values)
             avg_episode_return = sum(episode_rewards) / len(episode_rewards)
             cumulative_reward = sum(episode_rewards)
             discounted_reward = sum([r * (self.discount_factor ** i) for i, r in enumerate(episode_rewards)])
-            sample_efficiency = len(visited_states)  # Unique states visited in the episode
+            sample_efficiency = len(visited_states)
 
             metrics = {
                 'episode': episode,
@@ -421,7 +538,7 @@ class DQNCustomAgent:
                 'average_reward': avg_episode_return,
                 'discounted_reward': discounted_reward,
                 'sample_efficiency': sample_efficiency,
-                'policy_entropy': 0,
+                'policy_entropy': 0,  # You might want to compute this from action_probs
                 'space_complexity': 0
             }
             writer.writerow(metrics)
@@ -433,33 +550,90 @@ class DQNCustomAgent:
         pbar.close()
         csvfile.close()
 
-        # Calculate the means for allowed and infected
         mean_allowed = round(sum(allowed_means_per_episode) / len(allowed_means_per_episode))
         mean_infected = round(sum(infected_means_per_episode) / len(infected_means_per_episode))
 
-        # Save the results in a separate CSV file
         summary_file_path = os.path.join(self.results_subdirectory, 'mean_allowed_infected.csv')
         with open(summary_file_path, 'w', newline='') as summary_csvfile:
             summary_writer = csv.DictWriter(summary_csvfile, fieldnames=['mean_allowed', 'mean_infected'])
             summary_writer.writeheader()
             summary_writer.writerow({'mean_allowed': mean_allowed, 'mean_infected': mean_infected})
 
-
-        model_file_path = os.path.join(self.model_subdirectory, f'model.pt')
-        torch.save(self.model.state_dict(), model_file_path)
-        print(f"Model saved at: {model_file_path}")
+        model = self.save_model()
 
         self.log_states_visited(list(visited_state_counts.keys()), list(visited_state_counts.values()), alpha,
                                 self.results_subdirectory)
-        # self.log_all_states_visualizations(self.model, self.run_name, self.max_episodes, alpha,
-        #                                    self.results_subdirectory)
 
-        return self.model
+        return model
 
+    def compute_gae(self, rewards, values, dones):
+        gae = 0
+        advantages = []
+        for step in reversed(range(len(rewards))):
+            if step == len(rewards) - 1:
+                next_value = 0
+            else:
+                next_value = values[step + 1]
+
+            delta = rewards[step] + self.discount_factor * next_value * (1 - dones[step]) - values[step]
+            gae = delta + self.discount_factor * self.gae_lambda * (1 - dones[step]) * gae
+            advantages.insert(0, gae)
+        return advantages
+
+    def ppo_update(self, states, actions, old_log_probs, returns, advantages):
+        states = torch.FloatTensor(states)
+        actions = torch.LongTensor(actions)
+        old_log_probs = torch.stack(old_log_probs)
+        returns = torch.FloatTensor(returns)
+        advantages = torch.FloatTensor(advantages)
+
+        for _ in range(self.n_epochs):
+            for batch_start in range(0, len(states), self.batch_size):
+                batch_end = batch_start + self.batch_size
+                state_batch = states[batch_start:batch_end]
+                action_batch = actions[batch_start:batch_end]
+                old_log_prob_batch = old_log_probs[batch_start:batch_end]
+                return_batch = returns[batch_start:batch_end]
+                advantage_batch = advantages[batch_start:batch_end]
+
+                new_action_probs, new_values = self.ppo_network(state_batch)
+                new_action_dist = torch.distributions.Categorical(new_action_probs)
+                new_log_probs = new_action_dist.log_prob(action_batch)
+
+                ratio = (new_log_probs - old_log_prob_batch).exp()
+                surr1 = ratio * advantage_batch
+                surr2 = torch.clamp(ratio, 1 - self.clip_range, 1 + self.clip_range) * advantage_batch
+                actor_loss = -torch.min(surr1, surr2).mean()
+
+                value_loss = F.mse_loss(new_values.squeeze(), return_batch)
+
+                entropy = new_action_dist.entropy().mean()
+
+                loss = actor_loss + self.value_coefficient * value_loss - self.entropy_coefficient * entropy
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.ppo_network.parameters(), self.max_grad_norm)
+                self.optimizer.step()
+
+    def save_model(self):
+        model_path = os.path.join(self.model_subdirectory, 'ppo_model.pt')
+        torch.save(self.ppo_network.state_dict(), model_path)
+        print(f"Model saved at: {model_path}")
+
+    def load_model(self):
+        model_path = os.path.join(self.model_subdirectory, 'ppo_model.pt')
+        if os.path.exists(model_path):
+            self.ppo_network.load_state_dict(torch.load(model_path, map_location='cpu'))
+            print(f"Model loaded from: {model_path}")
+        else:
+            print("No saved model found. Starting with a new model.")
 
     def generate_all_states(self):
         value_range = range(0, 101, 10)
-        input_dim = self.model.encoder[0].in_features
+
+        # Determine input dimension from the actor network
+        input_dim = self.actor.fc1.in_features
 
         if input_dim == 2:
             # If the model expects only 2 inputs, we'll use the first course and community risk
@@ -470,9 +644,11 @@ class DQNCustomAgent:
             all_states = [np.array(list(combo) + [risk]) for combo in course_combinations for risk in value_range]
 
             # Truncate or pad states to match input_dim
-            all_states = [state[:input_dim] if len(state) > input_dim else
-                          np.pad(state, (0, max(0, input_dim - len(state))), 'constant')
-                          for state in all_states]
+            all_states = [
+                state[:input_dim] if len(state) > input_dim else
+                np.pad(state, (0, max(0, input_dim - len(state))), 'constant')
+                for state in all_states
+            ]
 
         return all_states
 
@@ -480,7 +656,7 @@ class DQNCustomAgent:
         all_states = self.generate_all_states()
         num_courses = len(self.env.students_per_course)
         file_paths = visualize_all_states(model, all_states, run_name, num_courses, max_episodes, alpha,
-                                          results_subdirectory, self.env.students_per_course)
+                                          results_subdirectory)
         print("file_paths: ", file_paths)
 
     def log_states_visited(self, states, visit_counts, alpha, results_subdirectory):
@@ -509,19 +685,19 @@ class DQNCustomAgent:
     def train_single_run(self, seed, alpha):
         set_seed(seed)
         # Reset relevant variables for each run
-        self.replay_memory = deque(maxlen=self.agent_config['agent']['replay_memory_capacity'])
         self.reward_window = deque(maxlen=self.moving_average_window)
-        self.model = DeepQNetwork(self.input_dim, self.hidden_dim, self.output_dim)
-        self.target_model = DeepQNetwork(self.input_dim, self.hidden_dim, self.output_dim)
-        self.target_model.load_state_dict(self.model.state_dict())
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.agent_config['agent']['learning_rate'])
-        self.scheduler = StepLR(self.optimizer, step_size=100, gamma=self.learning_rate_decay)
+        self.actor = ActorNetwork(self.input_dim, self.hidden_dim, self.output_dim)
+        self.critic = CriticNetwork(self.input_dim, self.hidden_dim)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=self.actor_learning_rate)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=self.critic_learning_rate)
+        self.actor_scheduler = StepLR(self.actor_optimizer, step_size=100, gamma=self.actor_learning_rate_decay)
+        self.critic_scheduler = StepLR(self.critic_optimizer, step_size=100, gamma=self.critic_learning_rate_decay)
 
         self.run_rewards_per_episode = []  # Store rewards per episode for this run
 
         pbar = tqdm(total=self.max_episodes, desc=f"Training Run {seed}", leave=True)
         visited_state_counts = {}
-        previous_q_values = None
+        previous_value = None
 
         for episode in range(self.max_episodes):
             self.decay_handler.set_decay_function(self.decay_function)
@@ -531,9 +707,9 @@ class DQNCustomAgent:
             done = False
             episode_rewards = []
             visited_states = set()  # Using a set to track unique states
-            episode_q_values = []
+            episode_values = []
             step = 0
-            q_value_change = 0
+            value_change = 0
 
             while not done:
                 actions = self.select_action(state)
@@ -544,37 +720,40 @@ class DQNCustomAgent:
                 total_reward += reward
                 episode_rewards.append(reward)
 
-                current_q_values = self.model(torch.FloatTensor(state).unsqueeze(0)).detach().numpy()
-                if previous_q_values is not None:
-                    q_value_change += np.mean((current_q_values - previous_q_values) ** 2)
-                previous_q_values = current_q_values
-                # Update Q-values directly without replay memory or batch processing
                 state_tensor = torch.FloatTensor(state).unsqueeze(0)
                 next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0)
                 action_tensor = torch.LongTensor(original_actions)
+                reward_tensor = torch.FloatTensor([reward])
 
-                current_q_values = self.model(state_tensor)
-                next_q_values = self.model(next_state_tensor)
-                # print(info)
+                # Critic update
+                current_value = self.critic(state_tensor)
+                next_value = self.critic(next_state_tensor)
+                target_value = reward_tensor + (1 - done) * self.discount_factor * next_value
+                critic_loss = F.mse_loss(current_value, target_value.detach())
 
-                # Handle multi-course scenario
-                num_courses = len(original_actions)
-                current_q_values = current_q_values.repeat(1, num_courses).view(num_courses, -1)
-                next_q_values = next_q_values.repeat(1, num_courses).view(num_courses, -1)
+                self.critic_optimizer.zero_grad()
+                critic_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+                self.critic_optimizer.step()
 
-                current_q_values = current_q_values.gather(1, action_tensor.unsqueeze(1)).squeeze(1)
-                next_q_values = next_q_values.max(1)[0]
+                # Actor update
+                action_probs = self.actor(state_tensor)
+                action_distribution = torch.distributions.Categorical(action_probs)
+                log_prob = action_distribution.log_prob(action_tensor)
+                entropy = action_distribution.entropy().mean()
+                advantage = (target_value - current_value).detach()
+                actor_loss = -(log_prob * advantage).mean() - self.entropy_coefficient * entropy
 
-                target_q_values = reward + (1 - done) * self.discount_factor * next_q_values
+                self.actor_optimizer.zero_grad()
+                actor_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
+                self.actor_optimizer.step()
 
-                loss = nn.MSELoss()(current_q_values, target_q_values)
-                # print(info)
+                if previous_value is not None:
+                    value_change += np.mean((current_value.detach().numpy() - previous_value) ** 2)
+                previous_value = current_value.detach().numpy()
 
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
-
-                episode_q_values.extend(current_q_values.detach().numpy().tolist())
+                episode_values.extend(current_value.detach().numpy().tolist())
 
                 state = next_state
                 state_tuple = tuple(state)
@@ -584,6 +763,8 @@ class DQNCustomAgent:
 
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
             self.run_rewards_per_episode.append(episode_rewards)
+            self.actor_scheduler.step()
+            self.critic_scheduler.step()
             pbar.update(1)
             pbar.set_description(f"Total Reward: {total_reward:.2f}, Epsilon: {self.exploration_rate:.2f}")
         pbar.close()
@@ -1145,38 +1326,6 @@ class DQNCustomAgent:
         plt.savefig(os.path.join(self.save_path, f'equilibrium_points_{run_name}_alpha_{alpha}.png'))
         plt.close()
 
-    def plot_lyapunov_change(self, V, features, run_name, alpha):
-        infected = np.linspace(0, 100, 50)
-        risk = np.linspace(0, 1, 50)
-        X, Y = np.meshgrid(infected, risk)
-        states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
-
-        with torch.no_grad():
-            V_values = V(states).squeeze().cpu().numpy().reshape(X.shape)
-            next_states = self.get_next_states(states, alpha)
-            V_next_values = V(next_states).squeeze().cpu().numpy().reshape(X.shape)
-            delta_V = V_next_values - V_values
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
-
-        im1 = ax1.imshow(V_values, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='viridis')
-        ax1.set_title(f'Lyapunov Function V(x) (Run: {run_name}, Alpha: {alpha})')
-        ax1.set_xlabel('Infected')
-        ax1.set_ylabel('Community Risk')
-        fig.colorbar(im1, ax=ax1, label='V(x)')
-
-        im2 = ax2.imshow(delta_V, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='coolwarm')
-        ax2.set_title(f'Change in Lyapunov Function ΔV(x) (Run: {run_name}, Alpha: {alpha})')
-        ax2.set_xlabel('Infected')
-        ax2.set_ylabel('Community Risk')
-        fig.colorbar(im2, ax=ax2, label='ΔV(x)')
-
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.save_path, f'lyapunov_change_{run_name}_alpha_{alpha}.png'))
-        plt.close()
-
-
-
     def analyze_markov_chain_stability(self, states, next_states, run_name):
         """Analyze the Markov Chain stability by computing the transition matrix and stationary distribution."""
         # Convert states and next_states to tuples for consistency
@@ -1253,9 +1402,6 @@ class DQNCustomAgent:
         # Check for aperiodicity: the greatest common divisor of the cycle lengths is 1
         aperiodic = np.all(np.diag(P) > 0)
         return irreducible and aperiodic
-
-
-
 
     def calculate_stationary_distribution(self, states, next_states):
         unique_states = sorted(set([tuple(state) for state in states + next_states]))
@@ -1536,15 +1682,18 @@ class DQNCustomAgent:
     def evaluate(self, run_name, num_episodes=1, x_value=38, y_value=80, z=95, alpha=0.5, csv_path=None):
         # print('Alpha from main:', alpha)
         model_subdirectory = os.path.join(self.model_directory, self.agent_type, run_name)
-        model_file_path = os.path.join(model_subdirectory, f'model.pt')
+        self.model_subdirectory = model_subdirectory
         results_directory = self.results_subdirectory
 
-        if not os.path.exists(model_file_path):
-            raise FileNotFoundError(f"Model file not found in {model_file_path}")
+        try:
+            self.load_model()
+        except FileNotFoundError as e:
+            print(f"Error loading model: {e}")
+            return []
 
-        self.model.load_state_dict(torch.load(model_file_path, map_location='cpu'))
-        self.model.eval()
-        print(f"Loaded model from {model_file_path}")
+        self.actor.eval()
+        self.critic.eval()
+        print(f"Loaded models from {model_subdirectory}")
 
         if csv_path:
             self.community_risk_values = self.read_community_risk_from_csv(csv_path)
@@ -1582,9 +1731,10 @@ class DQNCustomAgent:
                 while not done:
                     with torch.no_grad():
                         state_tensor = torch.FloatTensor(state).unsqueeze(0)
-                        q_values = self.model(state_tensor)
-                        action_index = q_values.argmax(dim=1).item()
-                        scaled_action = self.scale_action(action_index, self.output_dim)
+                        action_probs = self.actor(state_tensor)
+                        action_distribution = torch.distributions.Categorical(action_probs)
+                        action = action_distribution.sample()
+                        scaled_action = self.scale_action(action.item(), self.output_dim)
 
                     next_state, reward, done, _, info = self.env.step(([scaled_action], alpha))
                     next_state = np.array(next_state, dtype=np.float32)
@@ -1636,23 +1786,6 @@ class DQNCustomAgent:
                 is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time,
                                                               infected_values_over_time, evaluation_subdirectory)
 
-                # # Construct the Lyapunov function
-                # features = list(zip(allowed_values_over_time, infected_values_over_time, community_risks))
-                # V, theta, loss_values = self.construct_lyapunov_function(features, alpha)
-                #
-                #
-                # self.plot_loss_function(loss_values, alpha, run_name)
-                # self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
-                # self.plot_lyapunov_change(V, features, run_name, alpha)
-                # self.plot_equilibrium_points(features, run_name, alpha)
-                # self.plot_lyapunov_properties(V, features, run_name, alpha)
-                # Calculate the stationary distribution and unique states
-                # unique_states, stationary_distribution = self.calculate_stationary_distribution(states, next_states)
-                #
-                # # Plot the equilibrium points with the stationary distribution
-                # self.plot_equilibrium_points_with_stationary_distribution(stationary_distribution, unique_states,
-                #                                                           run_name)
-
                 # After all episodes have been evaluated and the CSV file has been saved, call the transition matrix plotting function
                 self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name,
                                                        evaluation_subdirectory)
@@ -1660,8 +1793,6 @@ class DQNCustomAgent:
                 optimal_x, optimal_y = self.find_optimal_xy(infected_values_over_time, allowed_values_over_time,
                                                             self.community_risk_values, z, run_name,
                                                             evaluation_subdirectory, alpha)
-                # final_states = self.simulate_steady_state(alpha=alpha)
-                # self.plot_simulated_steady_state(final_states, run_name, alpha)
 
                 print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
 
@@ -1707,7 +1838,9 @@ class DQNCustomAgent:
             plot_filename = os.path.join(self.save_path, f'evaluation_plot_{run_name}.png')
             plt.savefig(plot_filename)
             plt.close()
-            self.log_all_states_visualizations(self.model, self.run_name, self.max_episodes, alpha,
+            self.load_model()  # This should load both actor and critic models
+            all_states = self.generate_all_states()
+            self.log_all_states_visualizations(self.actor, self.run_name, self.max_episodes, alpha,
                                                self.results_subdirectory)
 
         return total_rewards

@@ -1141,6 +1141,39 @@ class QLearningAgent:
             else:
                 high_y = mid_y - 1
 
+        # Calculate the final safety percentages
+        time_above_optimal_x = sum(1 for val in infected_values if val > optimal_x)
+        final_infection_safety_percentage = (time_above_optimal_x / len(infected_values)) * 100
+
+        time_with_optimal_y_present = sum(1 for val in allowed_values if val >= optimal_y)
+        final_attendance_safety_percentage = (time_with_optimal_y_present / len(allowed_values)) * 100
+
+        # Determine if the safety conditions are met
+        infection_condition_met = final_infection_safety_percentage <= (100 - z)
+        attendance_condition_met = final_attendance_safety_percentage >= z
+
+        # Save the safety condition results
+        if run_name and evaluation_subdirectory:
+            output_file_path = os.path.join(evaluation_subdirectory, f'safety_conditions_{run_name}.csv')
+
+            with open(output_file_path, mode='w', newline='') as safety_file:
+                safety_writer = csv.writer(safety_file)
+                # Write the header
+                safety_writer.writerow(['Run Name', 'Optimal X', 'Infection Safety %', 'Infection Condition Met',
+                                        'Optimal Y', 'Attendance Safety %', 'Attendance Condition Met'])
+
+                # Write the results
+                safety_writer.writerow([
+                    run_name,
+                    optimal_x,
+                    final_infection_safety_percentage,
+                    'Yes' if infection_condition_met else 'No',
+                    optimal_y,
+                    final_attendance_safety_percentage,
+                    'Yes' if attendance_condition_met else 'No'
+                ])
+                print(f"Saved safety conditions to {output_file_path}")
+
         # Plotting the safety conditions
         if run_name and evaluation_subdirectory:
             plt.figure(figsize=(10, 6))
@@ -1263,211 +1296,192 @@ class QLearningAgent:
         with open(csv_file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['Episode', 'Step', 'State', 'Action', 'Community Risk', 'Total Reward'])
+            states = []
+            next_states = []
+            community_risks = []
 
-            with open(safety_log_path, mode='w', newline='') as safety_file, open(interpretation_path,
-                                                                                  mode='w') as interpretation_file:
-                safety_writer = csv.writer(safety_file)
-                safety_writer.writerow(['Episode', 'Infections > 30 (%)', 'Safety Condition Met (Infection)',
-                                        'Allowed Students ≥ 100 (%)', 'Safety Condition Met (Attendance)'])
+            for episode in range(num_episodes):
+                print(f"Starting evaluation for episode {episode + 1}...")
+                state, _ = self.env.reset()
+                print(f"Initial state for episode {episode + 1}: {state}")
+                c_state = state
+                terminated = False
+                total_reward = 0
+                step = 0
 
-                states = []
-                next_states = []
-                community_risks = []
+                allowed_values_over_time = []
+                infected_values_over_time = [20]  # Assuming an initial infection count
 
-                for episode in range(num_episodes):
-                    print(f"Starting evaluation for episode {episode + 1}...")
-                    state, _ = self.env.reset()
-                    print(f"Initial state for episode {episode + 1}: {state}")
-                    c_state = state
-                    terminated = False
-                    total_reward = 0
-                    step = 0
+                while not terminated:
+                    action = self._policy('test', c_state)
+                    # c_list_action = [i * 50 for i in action]
+                    c_list_action = action  # Pass the arbitrary actions directly
 
-                    allowed_values_over_time = []
-                    infected_values_over_time = [20]  # Assuming an initial infection count
+                    action_alpha_list = [*c_list_action, alpha]
+                    next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
+                    next_state = self.discretize_state(next_state)
+                    c_state = next_state
+                    total_reward += reward
 
-                    while not terminated:
-                        action = self._policy('test', c_state)
-                        # c_list_action = [i * 50 for i in action]
-                        c_list_action = action  # Pass the arbitrary actions directly
+                    states.append(info['continuous_state'])
+                    next_states.append(next_state)
+                    community_risks.append(info['community_risk'])
 
-                        action_alpha_list = [*c_list_action, alpha]
-                        next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
-                        next_state = self.discretize_state(next_state)
-                        c_state = next_state
-                        total_reward += reward
-
-                        states.append(info['continuous_state'])
-                        next_states.append(next_state)
-                        community_risks.append(info['community_risk'])
-
-                        writer.writerow(
-                            [episode + 1, step + 1, info['continuous_state'], c_list_action[0], info['community_risk'],
-                             reward]
-                        )
-
-                        allowed_values_over_time.append(c_list_action[0])
-                        infected_values_over_time.append(
-                            info['continuous_state'][0] if isinstance(info['continuous_state'], (list, tuple)) else
-                            info['continuous_state'])
-
-                        step += 1
-
-                    total_rewards.append(total_reward)
-                    print(f"Episode {episode + 1}: Total Reward = {total_reward}")
-
-                    # Ensure all arrays have the same length
-                    min_length = min(len(allowed_values_over_time), len(infected_values_over_time),
-                                     len(self.community_risk_values))
-                    allowed_values_over_time = allowed_values_over_time[:min_length]
-                    infected_values_over_time = infected_values_over_time[:min_length]
-                    community_risk_values = self.community_risk_values[:min_length]
-
-                    all_allowed_values.extend(allowed_values_over_time)
-                    all_infected_values.extend(infected_values_over_time)
-                    all_community_risk_values.extend(community_risk_values)
-
-                    # Calculate the percentage of time infections exceed the threshold
-                    time_above_x = sum(1 for val in infected_values_over_time if val > x_value)
-                    infection_exceed_percentage = (time_above_x / len(infected_values_over_time)) * 100
-
-                    time_with_y_present = sum(1 for val in allowed_values_over_time if val >= y_value)
-                    attendance_safety_percentage = (time_with_y_present / len(allowed_values_over_time)) * 100
-
-                    # Determine if the safety conditions are met
-                    infection_condition_met = infection_exceed_percentage <= (100 - z)
-                    attendance_condition_met = attendance_safety_percentage >= z
-
-                    # Log the safety condition results in the table
-                    safety_writer.writerow([
-                        episode + 1,
-                        infection_exceed_percentage,
-                        'Yes' if infection_condition_met else 'No',
-                        attendance_safety_percentage,
-                        'Yes' if attendance_condition_met else 'No'
-                    ])
-
-                    # Write the interpretation to the text file
-                    interpretation_file.write(
-                        f"Episode {episode + 1} Interpretation:\n"
-                        f"Safety Condition: No more than {x_value} infections for {100 - z}% of time: "
-                        f"{infection_exceed_percentage:.2f}% -> {'Condition Met' if infection_condition_met else 'Condition Not Met'}\n"
-                        f"Safety Condition: At least {y_value} allowed students for {z}% of time: "
-                        f"{attendance_safety_percentage:.2f}% -> {'Condition Met' if attendance_condition_met else 'Condition Not Met'}\n\n"
+                    writer.writerow(
+                        [episode + 1, step + 1, info['continuous_state'], c_list_action[0], info['community_risk'],
+                         reward]
                     )
 
-                    # Plotting safety conditions
-                    plt.figure(figsize=(10, 6))
-                    plt.scatter(allowed_values_over_time, infected_values_over_time, color='blue', label='State Points')
-                    plt.axhline(y=x_value, color='red', linestyle='--', label=f'Infection Threshold (x={x_value})')
-                    plt.axvline(x=y_value, color='green', linestyle='--', label=f'Attendance Threshold (y={y_value})')
-                    plt.xlabel('Allowed Students')
-                    plt.ylabel('Infected Individuals')
-                    plt.legend()
-                    plt.title(f'Safety Set Identification - Episode {episode + 1}')
-                    plt.grid(True)
-                    plt.savefig(os.path.join(evaluation_subdirectory, f'safety_set_plot_episode_{run_name}.png'))
-                    plt.close()
+                    allowed_values_over_time.append(c_list_action[0])
+                    infected_values_over_time.append(
+                        info['continuous_state'][0] if isinstance(info['continuous_state'], (list, tuple)) else
+                        info['continuous_state'])
 
-                    # Construct CBFs using direct x and y values
-                    B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time,
-                                                evaluation_subdirectory, x_value, y_value)
+                    step += 1
 
-                    # Verify forward invariance
-                    is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time,
-                                                                  infected_values_over_time, evaluation_subdirectory)
+                total_rewards.append(total_reward)
+                print(f"Episode {episode + 1}: Total Reward = {total_reward}")
 
-                    # After the episode loop
-                    # After the episode loop
-                    features = list(zip(allowed_values_over_time, infected_values_over_time,
-                                        self.community_risk_values[:len(allowed_values_over_time)]))
-                    V, loss_values = self.construct_lyapunov_function(features, alpha)
+                # Ensure all arrays have the same length
+                min_length = min(len(allowed_values_over_time), len(infected_values_over_time),
+                                 len(self.community_risk_values))
+                allowed_values_over_time = allowed_values_over_time[:min_length]
+                infected_values_over_time = infected_values_over_time[:min_length]
+                community_risk_values = self.community_risk_values[:min_length]
 
-                    # Evaluate Lyapunov function using the CSV data
-                    eval_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
-                    self.evaluate_lyapunov(V, eval_states, alpha)
+                all_allowed_values.extend(allowed_values_over_time)
+                all_infected_values.extend(infected_values_over_time)
+                all_community_risk_values.extend(community_risk_values)
 
-                    self.plot_loss_function(loss_values, alpha, run_name)
-                    self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
-                    self.plot_lyapunov_change(V, features, run_name, alpha)
-                    self.plot_equilibrium_points(features, run_name, alpha)
-                    self.plot_lyapunov_properties(V, features, run_name, alpha)
+                # # Calculate the percentage of time infections exceed the threshold
+                # time_above_x = sum(1 for val in infected_values_over_time if val > x_value)
+                # infection_exceed_percentage = (time_above_x / len(infected_values_over_time)) * 100
+                #
+                # time_with_y_present = sum(1 for val in allowed_values_over_time if val >= y_value)
+                # attendance_safety_percentage = (time_with_y_present / len(allowed_values_over_time)) * 100
+                #
+                # # Determine if the safety conditions are met
+                # infection_condition_met = infection_exceed_percentage <= (100 - z)
+                # attendance_condition_met = attendance_safety_percentage >= z
+                #
+                # # Log the safety condition results in the table
+                # safety_writer.writerow([
+                #     episode + 1,
+                #     infection_exceed_percentage,
+                #     'Yes' if infection_condition_met else 'No',
+                #     attendance_safety_percentage,
+                #     'Yes' if attendance_condition_met else 'No'
+                # ])
+                #
+                # # Write the interpretation to the text file
+                # interpretation_file.write(
+                #     f"Episode {episode + 1} Interpretation:\n"
+                #     f"Safety Condition: No more than {x_value} infections for {100 - z}% of time: "
+                #     f"{infection_exceed_percentage:.2f}% -> {'Condition Met' if infection_condition_met else 'Condition Not Met'}\n"
+                #     f"Safety Condition: At least {y_value} allowed students for {z}% of time: "
+                #     f"{attendance_safety_percentage:.2f}% -> {'Condition Met' if attendance_condition_met else 'Condition Not Met'}\n\n"
+                # )
+                #
+                # # Plotting safety conditions
+                # plt.figure(figsize=(10, 6))
+                # plt.scatter(allowed_values_over_time, infected_values_over_time, color='blue', label='State Points')
+                # plt.axhline(y=x_value, color='red', linestyle='--', label=f'Infection Threshold (x={x_value})')
+                # plt.axvline(x=y_value, color='green', linestyle='--', label=f'Attendance Threshold (y={y_value})')
+                # plt.xlabel('Allowed Students')
+                # plt.ylabel('Infected Individuals')
+                # plt.legend()
+                # plt.title(f'Safety Set Identification - Episode {episode + 1}')
+                # plt.grid(True)
+                # plt.savefig(os.path.join(evaluation_subdirectory, f'safety_set_plot_episode_{run_name}.png'))
+                # plt.close()
 
-                    # Calculate the stationary distribution and unique states
-                    unique_states, stationary_distribution = self.calculate_stationary_distribution(states, next_states)
+                # Construct CBFs using direct x and y values
+                B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time,
+                                            evaluation_subdirectory, x_value, y_value)
 
-                    # Plot the equilibrium points with the stationary distribution
-                    self.plot_equilibrium_points_with_stationary_distribution(stationary_distribution, unique_states,
-                                                                              run_name)
+                # Verify forward invariance
+                is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time,
+                                                              infected_values_over_time, evaluation_subdirectory)
 
-                # After all episodes have been evaluated
-                self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name,
-                                                       evaluation_subdirectory)
-                optimal_x, optimal_y = self.find_optimal_xy(infected_values_over_time, allowed_values_over_time,
-                                                            self.community_risk_values, z, run_name,
-                                                            evaluation_subdirectory)
-                print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
+                # # After the episode loop
+                # # After the episode loop
+                # features = list(zip(allowed_values_over_time, infected_values_over_time,
+                #                     self.community_risk_values[:len(allowed_values_over_time)]))
+                # V, loss_values = self.construct_lyapunov_function(features, alpha)
+                #
+                # # Evaluate Lyapunov function using the CSV data
+                # eval_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
+                # self.evaluate_lyapunov(V, eval_states, alpha)
+                #
+                # self.plot_loss_function(loss_values, alpha, run_name)
+                # self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
+                # self.plot_lyapunov_change(V, features, run_name, alpha)
+                # self.plot_equilibrium_points(features, run_name, alpha)
+                # self.plot_lyapunov_properties(V, features, run_name, alpha)
+                #
+                # # Calculate the stationary distribution and unique states
+                # unique_states, stationary_distribution = self.calculate_stationary_distribution(states, next_states)
+                #
+                # # Plot the equilibrium points with the stationary distribution
+                # self.plot_equilibrium_points_with_stationary_distribution(stationary_distribution, unique_states,
+                #                                                           run_name)
 
-            print("Evaluation complete. Preparing to plot final results...")
-            print(
-                f"Data lengths: allowed={len(all_allowed_values)}, infected={len(all_infected_values)}, community_risk={len(all_community_risk_values)}")
+            # After all episodes have been evaluated
+            self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name,
+                                                   evaluation_subdirectory)
+            optimal_x, optimal_y = self.find_optimal_xy(infected_values_over_time, allowed_values_over_time,
+                                                        self.community_risk_values, z, run_name,
+                                                        evaluation_subdirectory)
+            print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
 
-            # Call the plotting function with all accumulated data
+        print("Evaluation complete. Preparing to plot final results...")
+        print(
+            f"Data lengths: allowed={len(all_allowed_values)}, infected={len(all_infected_values)}, community_risk={len(all_community_risk_values)}")
 
-            self.plot_evaluation_results(
-                all_allowed_values,
-                all_infected_values,
-                all_community_risk_values,
-                run_name,
-                evaluation_subdirectory
-            )
-            final_states = self.simulate_steady_state(alpha=alpha)
-            self.plot_simulated_steady_state(final_states, run_name, alpha)
-            # Plotting
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
+        # Call the plotting function with all accumulated data
 
-            # Subplot 1: Community Risk and Allowed Values
-            ax1.set_xlabel('Week')
-            ax1.set_ylabel('Community Risk', color='tab:green')
-            ax1.plot(range(1, len(self.community_risk_values) + 1), self.community_risk_values, marker='s',
-                     linestyle='--',
-                     color='tab:green', label='Community Risk')
-            ax1.tick_params(axis='y', labelcolor='tab:green')
+        self.plot_evaluation_results(
+            all_allowed_values,
+            all_infected_values,
+            all_community_risk_values,
+            run_name,
+            evaluation_subdirectory
+        )
+        # final_states = self.simulate_steady_state(alpha=alpha)
+        # self.plot_simulated_steady_state(final_states, run_name, alpha)
+        # Plotting
+        x = np.arange(len(infected_values_over_time))
+        fig, ax1 = plt.subplots(figsize=(12, 8))
+        sns.set(style="whitegrid")
 
-            ax1b = ax1.twinx()
-            ax1b.set_ylabel('Allowed Values', color='tab:orange')
-            ax1b.bar(range(1, len(allowed_values_over_time) + 1), allowed_values_over_time, color='tab:orange',
-                     alpha=0.6,
-                     width=0.4, align='center', label='Allowed')
-            ax1b.tick_params(axis='y', labelcolor='tab:orange')
+        # Bar plot for infected and allowed
+        ax1.bar(x - 0.2, infected_values_over_time, width=0.4, color='red', label='Infected', alpha=0.6)
+        ax1.bar(x + 0.2, allowed_values_over_time, width=0.4, color='blue', label='Allowed', alpha=0.6)
 
-            ax1.legend(loc='upper left')
-            ax1b.legend(loc='upper right')
+        ax1.set_xlabel('Time Step')
+        ax1.set_ylabel('Infected / Allowed Values')
+        ax1.legend(loc='upper left')
+        ax1.grid(True)
 
-            # Subplot 2: Infected Students Over Time
-            ax2.set_xlabel('Week')
-            ax2.set_ylabel('Number of Infected Students', color='tab:blue')
-            ax2.plot(range(1, len(infected_values_over_time) + 1), infected_values_over_time, marker='o', linestyle='-',
-                     color='tab:blue', label='Infected')
-            ax2.tick_params(axis='y', labelcolor='tab:blue')
+        # Create a secondary y-axis for community risk
+        ax2 = ax1.twinx()
+        # ax2.plot(x, community_risk_values, color='black', marker='o', label='Community Risk')
+        sns.lineplot(x=x, y=community_risk_values, marker='s', linestyle='--', color='black', linewidth=2.5, ax=ax2)
+        ax2.set_ylabel('Community Risk')
+        ax2.legend(loc='upper right')
 
-            ax2.legend(loc='upper left')
+        plt.title(f'Evaluation Results\nRun: {run_name}')
 
-            # Set x-ticks to show fewer labels and label weeks from 1 to n
-            ticks = range(0, len(self.community_risk_values),
-                          max(1, len(self.community_risk_values) // 10))  # Show approximately 10 ticks
-            labels = [f'Week {i + 1}' for i in ticks]
+        # Save the plot
+        plot_filename = os.path.join(evaluation_subdirectory, f'evaluation_plot_{run_name}.png')
+        plt.savefig(plot_filename)
+        plt.close()
+        self.log_all_states_visualizations(self.q_table, self.all_states, self.states, self.run_name,
+                                           self.max_episodes,
+                                           alpha, self.results_subdirectory)
+        print("Final plotting complete.")
 
-            ax1.set_xticks(ticks)
-            ax1.set_xticklabels(labels, rotation=45)
-            ax2.set_xticks(ticks)
-            ax2.set_xticklabels(labels, rotation=45)
 
-            # Adjust layout and save the plot
-            plt.tight_layout()
-            plt.savefig(os.path.join(evaluation_subdirectory, f"evaluation_plot_{run_name}.png"))
-            plt.show()
-            print("Final plotting complete.")
         return total_rewards
 
     def moving_average(self, data, window_size):

@@ -36,7 +36,7 @@ def visualize_all_states(model, all_states, run_name, num_courses, max_episodes,
     color_map = {i: colors[i] for i in range(num_actions)}
 
     fig, axes = plt.subplots(1, num_courses, figsize=(5 * num_courses, 5), squeeze=False)
-    fig.suptitle(f'DQN-{alpha})', fontsize=16)
+    fig.suptitle(f'DQN-{alpha}', fontsize=16)
 
     for course in range(num_courses):
         x_values = np.linspace(0, 1, 10)  # 10 values for community risk

@@ -1,0 +1,47 @@
+agent:
+  # Existing parameters
+  hidden_units: 64
+  discount_factor: 0.99
+  max_episodes: 1000
+  exploration_rate: 1.0
+  min_exploration_rate: 0.01
+  exploration_decay_rate: 0.995
+  learning_rate: 0.0003
+  learning_rate_decay: 0.999
+  min_learning_rate: 0.00001
+  softmax_temperature: 0.1
+  e_decay_function: 3
+
+  # PPO-specific parameters
+  clip_range: 0.2
+  n_epochs: 10
+  batch_size: 64
+  gae_lambda: 0.95
+  value_coefficient: 0.5
+  entropy_coefficient: 0.01
+  max_grad_norm: 0.5
+
+  # Network architecture
+  actor_hidden_units: [64, 64]
+  critic_hidden_units: [64, 64]
+
+  # PPO-specific learning rates and decay
+  actor_learning_rate: 0.0003
+  critic_learning_rate: 0.0003
+  actor_learning_rate_decay: 0.999  # Added this
+  critic_learning_rate_decay: 0.999  # Added this
+  min_actor_learning_rate: 0.00001  # Added this
+  min_critic_learning_rate: 0.00001  # Added this
+
+  # PPO update parameters
+  update_interval: 2048
+  mini_batch_size: 64
+
+  # Early stopping
+  early_stopping_patience: 20
+  early_stopping_threshold: 0.01
+
+  # Logging and evaluation
+  log_interval: 10
+  eval_interval: 50
+  num_eval_episodes: 5

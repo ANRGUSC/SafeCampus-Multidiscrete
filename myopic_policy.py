@@ -36,7 +36,7 @@ def calculate_allowed_values(N, levels):
 
 # Example usage
 N = 100
-levels = 4
+levels = 3
 allowed = calculate_allowed_values(N, levels)  # This will give torch.tensor([0, 50, 100])
 
 class LyapunovNet(nn.Module):
@@ -430,7 +430,7 @@ class MyopicPolicy:
         community_risk_range = np.linspace(0, 1, 10)  # Community risk from 0 to 1 with 10 steps
         infected_range = np.arange(0, 100, 10)  # Infected individuals from 0 to 100 in steps of 10
 
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(5, 5))
 
         # Generate distinct colors based on the number of allowed levels
         colors = generate_distinct_colors(len(allowed))
@@ -450,21 +450,31 @@ class MyopicPolicy:
 
         ax.set_xlabel('Community Risk')
         ax.set_ylabel('Infected Individuals')
-        ax.set_title(f'Learned Policy Visualization\nRun: {run_name}, Alpha: {alpha}')
-        ax.grid(True)
+        ax.set_title(f'Learned Policy Visualization\nRun: {run_name}, Alpha: {levels}')
+        ax.grid(False)
+
+        # Add padding to y-axis and x-axis
+        # y_padding = 100 * 0.001  # 5% padding for the y-axis
+        # ax.set_ylim(-y_padding, 100 + y_padding)
+        ax.set_xlim(-0.05, 1.05)
+
+        # Set y-ticks to show appropriate scale
+        ax.set_yticks(np.linspace(0, 100, 5))
+        ax.set_yticklabels([f'{int(y)}' for y in ax.get_yticks()])
 
         # Create a custom legend
         legend_elements = [mpatches.Patch(facecolor=colors[i], label=f'Allow {allowed[i]}%') for i in
                            range(len(allowed))]
-        ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=len(allowed),
-                  fontsize='large')
+        fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05), ncol=len(allowed),
+                   fontsize='large')
 
         plt.tight_layout()
+        plt.subplots_adjust(bottom=0.15, top=0.9)
 
         # Save the plot with alpha in the filename
-        plot_filename = os.path.join(self.save_path, f"policy_visualization_{run_name}_alpha_{alpha}.png")
+        plot_filename = os.path.join(self.save_path, f"policy_visualization_{run_name}_alpha_{levels}.png")
         print(f"Saving policy visualization plot to {plot_filename}")
-        plt.savefig(plot_filename)
+        plt.savefig(plot_filename, bbox_inches='tight', dpi=300)
         plt.close()
 
     def get_next_state(self, current_state, alpha=0.2):
@@ -648,20 +658,20 @@ class MyopicPolicy:
                         total_rewards.append(total_reward)
                         print(f"Episode {episode + 1}: Total Reward = {total_reward}")
 
-                    # Perform safety analysis for the current x, y, and z
-                    infection_condition_met, attendance_condition_met = self.identify_safety_set(
-                        allowed_values_over_time,
-                        infected_values_over_time,
-                        x, y, z
-                    )
-
-                    # Store the results
-                    infection_safety_results[i, j] = infection_condition_met
-                    attendance_safety_results[k, j] = attendance_condition_met
+                    # # Perform safety analysis for the current x, y, and z
+                    # infection_condition_met, attendance_condition_met = self.identify_safety_set(
+                    #     allowed_values_over_time,
+                    #     infected_values_over_time,
+                    #     x, y, z
+                    # )
+                    #
+                    # # Store the results
+                    # infection_safety_results[i, j] = infection_condition_met
+                    # attendance_safety_results[k, j] = attendance_condition_met
 
         # Plot the results
-        self.plot_safety_analysis_results(x_values, z_values, infection_safety_results,
-                                          attendance_safety_results, evaluation_subdirectory, run_name, alpha)
+        # self.plot_safety_analysis_results(x_values, z_values, infection_safety_results,
+        #                                   attendance_safety_results, evaluation_subdirectory, run_name, alpha)
 
 
     def plot_safety_function(self, x_range, y_range, z_value, alpha_values, run_name):
@@ -733,13 +743,17 @@ class MyopicPolicy:
         plt.tight_layout()
 
         # Save the plot with alpha in the filename
-        plot_filename = os.path.join(self.save_path, f'transition_matrix_{run_name}_alpha_{alpha_value}.png')
+        plot_filename = os.path.join(self.save_path, f'transition_matrix_{run_name}_{levels}.png')
         print(f"Saving transition matrix plot to {plot_filename}")
         plt.savefig(plot_filename)
         plt.close()
 
+    import csv
+    import os
+    import matplotlib.pyplot as plt
+
     def find_optimal_xy(self, infected_values, allowed_values, community_risk_values, z=95, run_name=None,
-                        evaluation_subdirectory=None):
+                        evaluation_subdirectory=None, alpha=0.5):
         # Binary search for smallest x (infection threshold)
         low_x, high_x = 0, max(infected_values)
         optimal_x = high_x
@@ -770,18 +784,51 @@ class MyopicPolicy:
             else:
                 high_y = mid_y - 1
 
+        # Calculate the final safety percentages
+        time_above_optimal_x = sum(1 for val in infected_values if val > optimal_x)
+        final_infection_safety_percentage = (time_above_optimal_x / len(infected_values)) * 100
+
+        time_with_optimal_y_present = sum(1 for val in allowed_values if val >= optimal_y)
+        final_attendance_safety_percentage = (time_with_optimal_y_present / len(allowed_values)) * 100
+
+        # Determine if the safety conditions are met
+        infection_condition_met = final_infection_safety_percentage <= (100 - z)
+        attendance_condition_met = final_attendance_safety_percentage >= z
+
+        # Save the safety condition results
+        if run_name and evaluation_subdirectory:
+            output_file_path = os.path.join(evaluation_subdirectory, f'safety_conditions_{run_name}_{levels}.csv')
+
+            with open(output_file_path, mode='w', newline='') as safety_file:
+                safety_writer = csv.writer(safety_file)
+                # Write the header
+                safety_writer.writerow(['Run Name', 'Optimal X', 'Infection Safety %', 'Infection Condition Met',
+                                        'Optimal Y', 'Attendance Safety %', 'Attendance Condition Met'])
+
+                # Write the results
+                safety_writer.writerow([
+                    run_name,
+                    optimal_x,
+                    final_infection_safety_percentage,
+                    'Yes' if infection_condition_met else 'No',
+                    optimal_y,
+                    final_attendance_safety_percentage,
+                    'Yes' if attendance_condition_met else 'No'
+                ])
+
         # Plotting the safety conditions
         if run_name and evaluation_subdirectory:
             plt.figure(figsize=(10, 6))
             plt.scatter(allowed_values, infected_values, color='blue', label='State Points')
-            plt.axhline(y=optimal_x, color='red', linestyle='--', label=f'Infection Threshold (x={optimal_x})')
-            plt.axvline(x=optimal_y, color='green', linestyle='--', label=f'Attendance Threshold (y={optimal_y})')
+            plt.axhline(y=optimal_x, color='red', linestyle='--', label=f'Infection Threshold (x={int(optimal_x)})')
+            plt.axvline(x=optimal_y, color='green', linestyle='--', label=f'Attendance Threshold (y={int(optimal_y)})')
+
             plt.xlabel('Allowed Students')
             plt.ylabel('Infected Individuals')
             plt.legend()
             plt.title(f'Safety Set Identification - {run_name}')
             plt.grid(True)
-            plt.savefig(os.path.join(evaluation_subdirectory, f'safety_set_plot_{run_name}.png'))
+            plt.savefig(os.path.join(evaluation_subdirectory, f'safety_set_plot_3_{run_name}_{levels}.png'))
             plt.close()
 
         return optimal_x, optimal_y
@@ -818,7 +865,7 @@ class MyopicPolicy:
         plt.title(f'Evaluation Results\nRun: {run_name}')
 
         # Save the plot
-        plot_filename = os.path.join(self.save_path, f'evaluation_results_{run_name}_{alpha}.png')
+        plot_filename = os.path.join(self.save_path, f'evaluation_results_{run_name}_{levels}.png')
         plt.savefig(plot_filename)
         plt.close()
         print(f"Saved evaluation plot to {plot_filename}")
@@ -900,82 +947,58 @@ class MyopicPolicy:
 
         csv_file_path = os.path.join(self.save_path, f'evaluation_metrics_{run_name}.csv')
         safety_log_path = os.path.join(self.save_path, f'safety_conditions_{run_name}.csv')
-        interpretation_path = os.path.join(self.save_path, f'safety_conditions_interpretation_{run_name}.txt')
+        interpretation_path = os.path.join(self.save_path, f'safety_conditions_interpretation_{run_name}_{levels}.txt')
 
         with open(csv_file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['Episode', 'Step', 'State', 'Action', 'Community Risk', 'Total Reward'])
 
-            with open(safety_log_path, mode='w', newline='') as safety_file, open(interpretation_path,
-                                                                                  mode='w') as interpretation_file:
-                safety_writer = csv.writer(safety_file)
-                safety_writer.writerow(['Episode', 'Infections > 30 (%)', 'Safety Condition Met (Infection)',
-                                        'Allowed Students ≥ 100 (%)', 'Safety Condition Met (Attendance)'])
+            states = []
+            next_states = []
+            community_risks = []
 
-                states = []
-                next_states = []
-                community_risks = []
+            for episode in range(num_episodes):
+                current_infected = torch.tensor([20.0], dtype=torch.float32)
+                total_reward = 0
 
-                for episode in range(num_episodes):
-                    current_infected = torch.tensor([20.0], dtype=torch.float32)
-                    total_reward = 0
+                for step in range(num_weeks):
+                    community_risk = torch.tensor([community_risk_values[step]], dtype=torch.float32)
 
-                    for step in range(num_weeks):
-                        community_risk = torch.tensor([community_risk_values[step]], dtype=torch.float32)
+                    label, allowed_value, new_infected, reward, _, _ = self.get_label(current_infected,
+                                                                                      community_risk, alpha)
 
-                        label, allowed_value, new_infected, reward, _, _ = self.get_label(current_infected,
-                                                                                          community_risk, alpha)
+                    # Store the current state, next state, and community risk
+                    states.append(current_infected.numpy())
+                    next_states.append(new_infected.numpy())
+                    community_risks.append(community_risk.item())
 
-                        # Store the current state, next state, and community risk
-                        states.append(current_infected.numpy())
-                        next_states.append(new_infected.numpy())
-                        community_risks.append(community_risk.item())
+                    total_reward += reward.item()
 
-                        total_reward += reward.item()
-
-                        writer.writerow(
-                            [episode + 1, step + 1, current_infected.item(), allowed_value.item(),
-                             community_risk.item(), reward.item()]
-                        )
-
-                        if episode == 0:
-                            allowed_values_over_time.append(allowed_value.item())
-                            infected_values_over_time.append(new_infected.item())
-
-                        current_infected = new_infected
-
-                    total_rewards.append(total_reward)
-                    print(f"Episode {episode + 1}: Total Reward = {total_reward}")
-
-                    # Ensure all arrays have the same length
-                    min_length = min(len(allowed_values_over_time), len(infected_values_over_time),
-                                     len(community_risk_values))
-                    allowed_values_over_time = allowed_values_over_time[:min_length]
-                    infected_values_over_time = infected_values_over_time[:min_length]
-                    community_risk_values = community_risk_values[:min_length]
-
-                    # Identify the safety set
-                    is_safe_infection, is_safe_attendance = self.identify_safety_set(allowed_values_over_time,
-                                                                                     infected_values_over_time, x_value,
-                                                                                     y_value, z)
-
-                    # Log the safety condition results in the table
-                    safety_writer.writerow([
-                        episode + 1,
-                        100 - is_safe_infection * 100,
-                        'Yes' if is_safe_infection else 'No',
-                        is_safe_attendance * 100,
-                        'Yes' if is_safe_attendance else 'No'
-                    ])
-
-                    # Write the interpretation to the text file
-                    interpretation_file.write(
-                        f"Episode {episode + 1} Interpretation:\n"
-                        f"Safety Condition: No more than {x_value} infections for {100 - z}% of time: "
-                        f"{100 - is_safe_infection * 100:.2f}% -> {'Condition Met' if is_safe_infection else 'Condition Not Met'}\n"
-                        f"Safety Condition: At least {y_value} allowed students for {z}% of time: "
-                        f"{is_safe_attendance * 100:.2f}% -> {'Condition Met' if is_safe_attendance else 'Condition Not Met'}\n\n"
+                    writer.writerow(
+                        [episode + 1, step + 1, current_infected.item(), allowed_value.item(),
+                         community_risk.item(), reward.item()]
                     )
+
+                    if episode == 0:
+                        allowed_values_over_time.append(allowed_value.item())
+                        infected_values_over_time.append(new_infected.item())
+
+                    current_infected = new_infected
+
+                total_rewards.append(total_reward)
+                print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+
+                # Ensure all arrays have the same length
+                min_length = min(len(allowed_values_over_time), len(infected_values_over_time),
+                                 len(community_risk_values))
+                allowed_values_over_time = allowed_values_over_time[:min_length]
+                infected_values_over_time = infected_values_over_time[:min_length]
+                community_risk_values = community_risk_values[:min_length]
+
+                # Identify the safety set
+                is_safe_infection, is_safe_attendance = self.identify_safety_set(allowed_values_over_time,
+                                                                                 infected_values_over_time, x_value,
+                                                                                 y_value, z)
 
         avg_reward = np.mean(total_rewards)
         print(f"Average Reward over {num_episodes} episodes: {avg_reward}")
@@ -987,20 +1010,20 @@ class MyopicPolicy:
         is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time, infected_values_over_time)
 
         # Construct Lyapunov function
-        features = list(zip(allowed_values_over_time, infected_values_over_time, community_risk_values))
-        V, loss_values = self.construct_lyapunov_function(features, alpha)
-
-        # Plot the Lyapunov loss function
-        self.plot_loss_function(loss_values, alpha, run_name)
-
-        # Verify Lyapunov stability
-        self.verify_lyapunov_stability(V, features, alpha)
-
-        # Plot Lyapunov-related graphs
-        self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
-        self.plot_lyapunov_change(V, features, run_name, alpha)
-        self.plot_lyapunov_properties(V, features, run_name, alpha)
-        self.plot_equilibrium_points(features, run_name, alpha)
+        # features = list(zip(allowed_values_over_time, infected_values_over_time, community_risk_values))
+        # V, loss_values = self.construct_lyapunov_function(features, alpha)
+        #
+        # # Plot the Lyapunov loss function
+        # self.plot_loss_function(loss_values, alpha, run_name)
+        #
+        # # Verify Lyapunov stability
+        # self.verify_lyapunov_stability(V, features, alpha)
+        #
+        # # Plot Lyapunov-related graphs
+        # self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
+        # self.plot_lyapunov_change(V, features, run_name, alpha)
+        # self.plot_lyapunov_properties(V, features, run_name, alpha)
+        # self.plot_equilibrium_points(features, run_name, alpha)
 
 
         # Additional plot for visualizing policy
@@ -1017,7 +1040,7 @@ class MyopicPolicy:
         x_values = np.linspace(1, 100, 10)
         y_values = np.linspace(0, 100, 10)
         z_value = 95
-        alpha_values = [0.01,0.1, 0.2, 0.5, 0.8, 0.99]
+        alpha_values = [0.1,0.2, 0.3, 0.4, 0.5, 0.6]
         self.plot_safety_function(x_values, y_values, z_value, alpha_values, run_name)
         # After the evaluation loop
         self.plot_evaluation_results(infected_values_over_time, allowed_values_over_time, community_risk_values,
@@ -1030,13 +1053,14 @@ class MyopicPolicy:
             community_risk_values,
             z=z,
             run_name=run_name,
-            evaluation_subdirectory=self.save_path
+            evaluation_subdirectory=self.save_path,
+            alpha=alpha
         )
 
         print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
         # After the existing steady-state plot
-        final_states = self.simulate_steady_state(num_simulations, num_steps, alpha)
-        self.plot_simulated_steady_state(final_states, run_name, alpha)
+        # final_states = self.simulate_steady_state(num_simulations, num_steps, alpha)
+        # self.plot_simulated_steady_state(final_states, run_name, alpha)
 
 
         return avg_reward
@@ -1057,9 +1081,8 @@ def main(seed=42):
     myopic_policy = MyopicPolicy()
 
     # Define parameters
-    run_name = "myopic_test"
+    run_name = "myopic_test-3"
     num_episodes = 1
-    alpha = 0.3
     csv_path = "aggregated_weekly_risk_levels.csv"
     x_value = 20  # 50% of average infected
     y_value = 50  # 50% of average allowed
@@ -1068,21 +1091,27 @@ def main(seed=42):
     num_simulations = 10000  # New parameter for steady-state simulation
     num_steps = 100  # New parameter for steady-state simulation
 
-    avg_reward = myopic_policy.evaluate(
-        run_name=run_name,
-        num_episodes=num_episodes,
-        alpha=alpha,
-        csv_path=csv_path,
-        x_value=x_value,
-        y_value=y_value,
-        z=z,
-        perform_safety_analysis=perform_safety_analysis,
-        num_simulations=num_simulations,
-        num_steps=num_steps
-    )
+    # List of alpha values to iterate over
+    alpha_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
 
-    print(f"Average Reward: {avg_reward}")
+    for alpha in alpha_values:
+        print(f"Running evaluation for alpha = {alpha}")
+        current_run_name = f"{run_name}_alpha_{alpha}"
 
+        avg_reward = myopic_policy.evaluate(
+            run_name=current_run_name,
+            num_episodes=num_episodes,
+            alpha=alpha,
+            csv_path=csv_path,
+            x_value=x_value,
+            y_value=y_value,
+            z=z,
+            perform_safety_analysis=perform_safety_analysis,
+            num_simulations=num_simulations,
+            num_steps=num_steps
+        )
+
+        print(f"Average Reward for alpha {alpha}: {avg_reward}")
 
 if __name__ == "__main__":
     main()

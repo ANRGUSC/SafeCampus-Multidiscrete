@@ -1,5 +1,5 @@
 wandb:
-  project: "ml4h-tabular"
+  project: "ml4h-tabular-5"
 #  project: "campus-indoor-model"
   entity: "safe-campus"
 
