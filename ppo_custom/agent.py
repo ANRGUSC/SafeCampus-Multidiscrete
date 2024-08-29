@@ -631,19 +631,13 @@ class PPOCustomAgent:
 
     def generate_all_states(self):
         value_range = range(0, 101, 10)
-
-        # Determine input dimension from the actor network
-        input_dim = self.actor.fc1.in_features
+        input_dim = self.ppo_network.actor.input_dim
 
         if input_dim == 2:
-            # If the model expects only 2 inputs, we'll use the first course and community risk
             all_states = [np.array([i, j]) for i in value_range for j in value_range]
         else:
-            # Generate states for all courses and community risk
             course_combinations = itertools.product(value_range, repeat=self.num_courses)
             all_states = [np.array(list(combo) + [risk]) for combo in course_combinations for risk in value_range]
-
-            # Truncate or pad states to match input_dim
             all_states = [
                 state[:input_dim] if len(state) > input_dim else
                 np.pad(state, (0, max(0, input_dim - len(state))), 'constant')
@@ -651,7 +645,6 @@ class PPOCustomAgent:
             ]
 
         return all_states
-
     def log_all_states_visualizations(self, model, run_name, max_episodes, alpha, results_subdirectory):
         all_states = self.generate_all_states()
         num_courses = len(self.env.students_per_course)
@@ -1838,9 +1831,13 @@ class PPOCustomAgent:
             plot_filename = os.path.join(self.save_path, f'evaluation_plot_{run_name}.png')
             plt.savefig(plot_filename)
             plt.close()
-            self.load_model()  # This should load both actor and critic models
+            self.load_model()  # This should load the combined PPO network
+
+            # Generate all states
             all_states = self.generate_all_states()
-            self.log_all_states_visualizations(self.actor, self.run_name, self.max_episodes, alpha,
+
+            # Update the visualization function call
+            self.log_all_states_visualizations(self.ppo_network.actor, self.run_name, self.max_episodes, alpha,
                                                self.results_subdirectory)
 
         return total_rewards

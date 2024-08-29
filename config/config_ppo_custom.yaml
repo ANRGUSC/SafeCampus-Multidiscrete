@@ -10,7 +10,7 @@ agent:
   learning_rate_decay: 0.999
   min_learning_rate: 0.00001
   softmax_temperature: 0.1
-  e_decay_function: 3
+  e_decay_function: 11
 
   # PPO-specific parameters
   clip_range: 0.2
@@ -26,8 +26,8 @@ agent:
   critic_hidden_units: [64, 64]
 
   # PPO-specific learning rates and decay
-  actor_learning_rate: 0.0003
-  critic_learning_rate: 0.0003
+  actor_learning_rate: 0.001
+  critic_learning_rate: 0.001
   actor_learning_rate_decay: 0.999  # Added this
   critic_learning_rate_decay: 0.999  # Added this
   min_actor_learning_rate: 0.00001  # Added this
