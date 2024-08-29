@@ -72,22 +72,26 @@ class LyapunovNet(nn.Module):
         return out
 
 
-
-
-
-
-
 class DeepQNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim, out_dim):
         super(DeepQNetwork, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU()
-        )
+        num_layers = 5  # Number of hidden layers
+        # Create a list to hold the layers
+        layers = []
+
+        # Add the first layer with input_dim
+        layers.append(nn.Linear(input_dim, hidden_dim))
+        layers.append(nn.ReLU())
+
+        # Add additional hidden layers
+        for _ in range(num_layers - 1):  # num_layers includes the first layer
+            layers.append(nn.Linear(hidden_dim, hidden_dim))
+            layers.append(nn.ReLU())
+
+        # Use nn.Sequential to define the encoder with the specified number of layers
+        self.encoder = nn.Sequential(*layers)
+
+        # Define the output layer
         self.out = nn.Linear(hidden_dim, out_dim)
 
     def forward(self, x):
@@ -189,7 +193,7 @@ class DQNCustomAgent:
         if csv_path:
             self.community_risk_values = self.read_community_risk_from_csv(csv_path)
             self.max_weeks = len(self.community_risk_values)
-            print(f"Community Risk Values: {self.community_risk_values}")
+            # print(f"Community Risk Values: {self.community_risk_values}")
         else:
             self.community_risk_values = None
             self.max_weeks = self.env.campus_state.model.get_max_weeks()
@@ -216,17 +220,42 @@ class DQNCustomAgent:
         except Exception as e:
             raise ValueError(f"Error reading CSV file: {e}")
 
+    # def select_action(self, state):
+    #     if random.random() < self.exploration_rate:
+    #         return [random.randint(0, self.output_dim - 1) * 50 for _ in range(self.num_courses)]
+    #     else:
+    #         with torch.no_grad():
+    #             state = torch.FloatTensor(state).unsqueeze(0)
+    #             q_values = self.model(state)
+    #             # print(f"Q-values shape in select_action: {q_values.shape}")
+    #             # Repeat Q-values for each course
+    #             q_values = q_values.repeat(1, self.num_courses).view(self.num_courses, -1)
+    #
+    #             actions = q_values.max(1)[1].tolist()
+    #             return [action * 50 for action in actions]
+
     def select_action(self, state):
         if random.random() < self.exploration_rate:
-            return [random.randint(0, self.output_dim - 1) * 50 for _ in range(self.num_courses)]
+            return [self.scale_action(random.randint(0, self.output_dim - 1), self.output_dim) for _ in
+                    range(self.num_courses)]
         else:
             with torch.no_grad():
                 state = torch.FloatTensor(state).unsqueeze(0)
                 q_values = self.model(state)
-                # Repeat Q-values for each course
-                q_values = q_values.repeat(1, self.num_courses).view(self.num_courses, -1)
-                actions = q_values.max(1)[1].tolist()
-                return [action * 50 for action in actions]
+
+                # Get the index of the highest Q-value
+                action_index = q_values.argmax(dim=1).item()
+
+                # Scale the action
+                scaled_action = self.scale_action(action_index, self.output_dim)
+
+                # Debugging: Print the possible actions (indices) and corresponding Q-values
+                # print(f"Selected action index: {action_index}")
+                # print(f"Q-values: {q_values}")
+                # print(f"Scaled action: {scaled_action}")
+                # print(f"Output dimension: {self.output_dim}")
+
+                return [scaled_action]  # Return as a list to maintain consistency with the exploration case
 
     def calculate_convergence_rate(self, episode_rewards):
         # Simple example: Convergence rate is the change in reward over the last few episodes
@@ -256,7 +285,30 @@ class DQNCustomAgent:
         # Return mean entropy as a Python float
         return entropy.mean().item()
 
+    def scale_action(self, action_index, num_actions):
+        """
+        Scale the action index to the corresponding allowed value.
 
+        Parameters:
+        action_index (int): The index of the action.
+        num_actions (int): The number of discrete actions available.
+
+        Returns:
+        int: The scaled action value.
+        """
+        if num_actions <= 1:
+            raise ValueError("num_actions must be greater than 1 to scale actions.")
+
+        max_value = 100
+        step_size = max_value / (num_actions - 1)
+        return int(round(action_index * step_size))
+
+    def reverse_scale_action(self, action, num_actions):
+        if num_actions <= 1:
+            raise ValueError("num_actions must be greater than 1 to reverse scale actions.")
+        max_value = 100
+        step_size = max_value / (num_actions - 1)
+        return round(action / step_size)
 
 
     def train(self, alpha):
@@ -282,6 +334,7 @@ class DQNCustomAgent:
             writer.writeheader()
 
         previous_q_values = None
+
         for episode in range(self.max_episodes):
             self.decay_handler.set_decay_function(self.decay_function)
             state, _ = self.env.reset()
@@ -297,8 +350,8 @@ class DQNCustomAgent:
             episode_infected = []
 
             while not done:
-                with torch.no_grad():
-                    actions = self.select_action(state)
+                actions = self.select_action(state)
+                original_actions = [self.reverse_scale_action(action, self.output_dim) for action in actions]
                 next_state, reward, done, _, info = self.env.step((actions, alpha))
                 next_state = np.array(next_state, dtype=np.float32)
 
@@ -306,7 +359,8 @@ class DQNCustomAgent:
                 episode_allowed.append(sum(info.get('allowed', [])))  # Sum all courses' allowed students
                 episode_infected.append(sum(info.get('infected', [])))
 
-                original_actions = [action // 50 for action in actions]
+                # original_actions = [action // 50 for action in actions]
+
                 total_reward += reward
                 episode_rewards.append(reward)
 
@@ -314,7 +368,6 @@ class DQNCustomAgent:
                 if previous_q_values is not None:
                     q_value_change += np.mean((current_q_values - previous_q_values) ** 2)
                 previous_q_values = current_q_values
-
                 # Update Q-values directly without replay memory or batch processing
                 state_tensor = torch.FloatTensor(state).unsqueeze(0)
                 next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0)
@@ -337,13 +390,10 @@ class DQNCustomAgent:
                 loss = nn.MSELoss()(current_q_values, target_q_values)
 
                 self.optimizer.zero_grad()
-                with torch.cuda.amp.autocast():
-                    loss = nn.MSELoss()(current_q_values, target_q_values)
-                self.scaler.scale(loss).backward()
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
+                loss.backward()
+                self.optimizer.step()
 
-                episode_q_values.extend(current_q_values.detach().cpu().numpy().tolist())
+                episode_q_values.extend(current_q_values.detach().numpy().tolist())
 
                 state = next_state
                 state_tuple = tuple(state)
@@ -351,6 +401,7 @@ class DQNCustomAgent:
                 visited_state_counts[state_tuple] = visited_state_counts.get(state_tuple, 0) + 1
                 step += 1
 
+            #
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
             e_mean_allowed = sum(episode_allowed) / len(episode_allowed)
             e_mean_infected = sum(episode_infected) / len(episode_infected)
@@ -362,8 +413,6 @@ class DQNCustomAgent:
             cumulative_reward = sum(episode_rewards)
             discounted_reward = sum([r * (self.discount_factor ** i) for i, r in enumerate(episode_rewards)])
             sample_efficiency = len(visited_states)  # Unique states visited in the episode
-            policy_entropy = self.calculate_policy_entropy(
-                self.model(torch.FloatTensor(state).unsqueeze(0)).detach().numpy())
 
             metrics = {
                 'episode': episode,
@@ -371,19 +420,17 @@ class DQNCustomAgent:
                 'average_reward': avg_episode_return,
                 'discounted_reward': discounted_reward,
                 'sample_efficiency': sample_efficiency,
-                'policy_entropy': policy_entropy,
-                'space_complexity': sum(p.numel() for p in self.model.parameters())
+                'policy_entropy': 0,
+                'space_complexity': 0
             }
             writer.writerow(metrics)
-            # wandb.log({'cumulative_reward': cumulative_reward})
+            wandb.log({'cumulative_reward': cumulative_reward})
 
             pbar.update(1)
             pbar.set_description(f"Total Reward: {total_reward:.2f}, Epsilon: {self.exploration_rate:.2f}")
 
         pbar.close()
         csvfile.close()
-
-
 
         # Calculate the means for allowed and infected
         mean_allowed = round(sum(allowed_means_per_episode) / len(allowed_means_per_episode))
@@ -407,6 +454,7 @@ class DQNCustomAgent:
                                            self.results_subdirectory)
 
         return self.model
+
 
     def generate_all_states(self):
         value_range = range(0, 101, 10)
@@ -608,21 +656,11 @@ class DQNCustomAgent:
         upper_bounds = np.array(upper_bounds)
         central_tendency = np.array(central_tendency)
 
-        # Check data before smoothing
-        print("Central Tendency (pre-smoothing):", central_tendency)
-        print("Lower Bounds (pre-smoothing):", lower_bounds)
-        print("Upper Bounds (pre-smoothing):", upper_bounds)
-
         # Smoothing the curve
         central_tendency_smooth = self.moving_average(central_tendency, 100)
         lower_bounds_smooth = self.moving_average(lower_bounds, 100)
         upper_bounds_smooth = self.moving_average(upper_bounds, 100)
         episodes_smooth = list(range(len(central_tendency_smooth)))
-
-        # Check data after smoothing
-        print("Central Tendency (post-smoothing):", central_tendency_smooth)
-        print("Lower Bounds (post-smoothing):", lower_bounds_smooth)
-        print("Upper Bounds (post-smoothing):", upper_bounds_smooth)
 
         plt.figure(figsize=(10, 6))
         sns.set_style("whitegrid")
@@ -660,10 +698,7 @@ class DQNCustomAgent:
         lower_bounds = np.array(lower_bounds)
         upper_bounds = np.array(upper_bounds)
 
-        # Check data before smoothing
-        print("Means (pre-smoothing):", means)
-        print("Lower Bounds (pre-smoothing):", lower_bounds)
-        print("Upper Bounds (pre-smoothing):", upper_bounds)
+
 
         # Smoothing the curve
         means_smooth = self.moving_average(means, 100)
@@ -671,10 +706,6 @@ class DQNCustomAgent:
         upper_bounds_smooth = self.moving_average(upper_bounds, 100)
         episodes_smooth = list(range(len(means_smooth)))
 
-        # Check data after smoothing
-        print("Means (post-smoothing):", means_smooth)
-        print("Lower Bounds (post-smoothing):", lower_bounds_smooth)
-        print("Upper Bounds (post-smoothing):", upper_bounds_smooth)
 
         plt.figure(figsize=(10, 6))
         sns.set_style("whitegrid")
@@ -893,9 +924,6 @@ class DQNCustomAgent:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-
-            if epoch % 10 == 0:
-                print(f"Epoch {epoch}, Loss: {loss.item():.6f}")
 
             loss_values.append(loss.item())
 
@@ -1253,11 +1281,11 @@ class DQNCustomAgent:
         # Replace any NaNs or Infs in the transition matrix with zeros
         P = np.nan_to_num(P, nan=0.0, posinf=0.0, neginf=0.0)
 
-        print(f"Normalized Transition Matrix:\n{P}")
+        # print(f"Normalized Transition Matrix:\n{P}")
 
         # Solve for the stationary distribution
         eigvals, eigvecs = np.linalg.eig(P.T)
-        print(f"Eigenvalues of Transition Matrix:\n{eigvals}")
+        # print(f"Eigenvalues of Transition Matrix:\n{eigvals}")
 
         # Identify the eigenvectors corresponding to an eigenvalue of 1
         close_to_one = np.isclose(eigvals, 1)
@@ -1354,8 +1382,12 @@ class DQNCustomAgent:
 
     def find_optimal_xy(self, infected_values, allowed_values, community_risk_values, z=95, run_name=None,
                         evaluation_subdirectory=None):
+        # Ensure that infected and allowed values do not exceed 100
+        infected_values = [min(val, 100) for val in infected_values]
+        allowed_values = [min(val, 100) for val in allowed_values]
+
         # Binary search for smallest x (infection threshold)
-        low_x, high_x = 0, max(infected_values)
+        low_x, high_x = 0, min(max(infected_values), 100)  # Constrain x to not exceed 100
         optimal_x = high_x
 
         while low_x <= high_x:
@@ -1370,7 +1402,7 @@ class DQNCustomAgent:
                 low_x = mid_x + 1
 
         # Binary search for largest y (allowed threshold)
-        low_y, high_y = 0, max(allowed_values)
+        low_y, high_y = 0, min(max(allowed_values), 100)  # Constrain y to not exceed 100
         optimal_y = low_y
 
         while low_y <= high_y:
@@ -1383,6 +1415,10 @@ class DQNCustomAgent:
                 low_y = mid_y + 1
             else:
                 high_y = mid_y - 1
+
+        # Ensure that the number of infected individuals does not exceed the allowed number of students
+        if optimal_x > optimal_y:
+            optimal_x = optimal_y
 
         # Plotting the safety conditions
         if run_name and evaluation_subdirectory:
@@ -1457,7 +1493,7 @@ class DQNCustomAgent:
         # Plot the 2D histogram
         plt.imshow(hist.T, origin='lower', aspect='auto',
                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-                   cmap='viridis')
+                   cmap='gray_r')
 
         plt.colorbar(label='Frequency')
         plt.xlabel('Community Risk')
@@ -1468,6 +1504,8 @@ class DQNCustomAgent:
         plt.tight_layout()
         plt.savefig(os.path.join(self.save_path, f'simulated_steady_state_{run_name}_alpha_{alpha}.png'))
         plt.close()
+
+
 
     def evaluate(self, run_name, num_episodes=1, x_value=38, y_value=80, z=95, alpha=0.5, csv_path=None):
         # print('Alpha from main:', alpha)
@@ -1547,7 +1585,7 @@ class DQNCustomAgent:
                         step += 1
 
                     total_rewards.append(total_reward)
-                    print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+                    # print(f"Episode {episode + 1}: Total Reward = {total_reward}")
 
                     # Ensure all arrays have the same length
                     min_length = min(len(allowed_values_over_time), len(infected_values_over_time),
@@ -1647,6 +1685,40 @@ class DQNCustomAgent:
                 f.write(
                     f"Safety Percentage for Attendance ≥ {y_value}: {attendance_safety_percentage:.2f}% -> {'Condition Met' if attendance_condition_met else 'Condition Not Met'}\n")
                 f.write(f"Forward Invariance Verified: {'Yes' if is_invariant else 'No'}\n")
+
+            min_length = min(len(allowed_values_over_time), len(infected_values_over_time),
+                             len(self.community_risk_values))
+            allowed_values_over_time = allowed_values_over_time[:min_length]
+            infected_values_over_time = [20] + infected_values_over_time[:min_length-1]
+            community_risk_values = self.community_risk_values[:min_length]
+            weeks = range(1, min_length + 1)
+
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
+
+            sns.lineplot(x=weeks, y=community_risk_values,
+                         marker='s', linestyle='--', color='darkgreen', linewidth=2.5, ax=ax1)
+            ax1.set_xlabel('Week')
+            ax1.set_ylabel('Community Risk', color='darkgreen')
+            ax1.tick_params(axis='y', labelcolor='darkgreen')
+
+            ax2.bar(weeks, allowed_values_over_time,
+                    color='blue', alpha=0.6, width=0.4, align='center', label='Allowed')
+            ax2.bar(weeks, infected_values_over_time,
+                    color='red', alpha=0.6, width=0.4, align='edge', label='Infected')
+            ax2.set_xlabel('Week')
+            ax2.set_ylabel('Allowed and Infected Values')
+            ax2.legend(loc='upper left')
+
+            ticks = range(0, min_length, max(1, min_length // 10))
+            labels = [f'Week {i + 1}' for i in ticks]
+
+            ax1.set_xticks(ticks)
+            ax1.set_xticklabels(labels, rotation=45)
+            ax2.set_xticks(ticks)
+            ax2.set_xticklabels(labels, rotation=45)
+
+            plt.tight_layout()
+            plt.savefig(os.path.join(evaluation_subdirectory, f"evaluation_plot_{run_name}.png"))
 
         return total_rewards
 

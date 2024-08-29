@@ -1,52 +1,18 @@
 #!/bin/bash
 
 # Define the list of alpha values
-alphas=(0.2 0.3 0.5 0.8)
+alphas=(0.1 0.2 0.3 0.4 0.45 0.5 0.55 0.6 0.8 0.9 1.0)
 
-# Export main.py so it is available to subshells
-export -f main.py
+# Path to the CSV file containing community risk values
+csv_path="aggregated_weekly_risk_levels.csv"
 
-# Run tasks in parallel
-printf "%s\n" "${alphas[@]}" | xargs -I {} -P 8 bash -c 'echo "Running training with alpha = {}"; python3 main.py train --alpha {}'
+# Loop through each alpha value and run the DQN and Myopic agents sequentially
+for alpha in "${alphas[@]}"; do
+  echo "Running DQN agent training and evaluation with alpha = $alpha"
+  python3 main.py train_and_eval --alpha "$alpha" --agent_type "dqn_custom" --csv_path "$csv_path" --algorithm "dqn"
 
-echo "All training runs completed."
+  echo "Running Tabular Q agent training and evaluation with alpha = $alpha"
+  python3 main.py train_and_eval --alpha "$alpha" --agent_type "q_learning" --csv_path "$csv_path" --algorithm "q_learning"
+done
 
-# Training Commands
-
-# Q-learning Training (without CSV)
-python your_script.py train --agent_type q_learning --algorithm q_learning --alpha 0.8
-
-# Q-learning Training (with CSV)
-python your_script.py train --agent_type q_learning --algorithm q_learning --alpha 0.8 --read_from_csv --csv_path path/to/your/training_data.csv
-
-# DQN Training (without CSV)
-python your_script.py train --agent_type dqn --algorithm dqn --alpha 0.8
-
-# DQN Training (with CSV)
-python your_script.py train --agent_type dqn --algorithm dqn --alpha 0.8 --read_from_csv --csv_path path/to/your/training_data.csv
-
-# Evaluation Commands
-
-# Q-learning Evaluation (without CSV)
-python your_script.py eval --agent_type q_learning --algorithm q_learning --alpha 0.8 --run_name q_learning_run_001
-
-# Q-learning Evaluation (with CSV)
-python your_script.py eval --agent_type q_learning --algorithm q_learning --alpha 0.8 --run_name q_learning_run_001 --read_from_csv --csv_path path/to/your/eval_data.csv
-
-# DQN Evaluation (without CSV)
-python your_script.py eval --agent_type dqn --algorithm dqn --alpha 0.8 --run_name dqn_run_001
-
-# DQN Evaluation (with CSV)
-python your_script.py eval --agent_type dqn --algorithm dqn --alpha 0.8 --run_name dqn_run_001 --read_from_csv --csv_path path/to/your/eval_data.csv
-
-# Random Agent Evaluation (Q-learning environment, without CSV)
-python your_script.py random --agent_type q_learning --algorithm q_learning --alpha 0.8 --run_name random_q_learning_001
-
-# Random Agent Evaluation (Q-learning environment, with CSV)
-python your_script.py random --agent_type q_learning --algorithm q_learning --alpha 0.8 --run_name random_q_learning_001 --read_from_csv --csv_path path/to/your/eval_data.csv
-
-# Random Agent Evaluation (DQN environment, without CSV)
-python your_script.py random --agent_type dqn --algorithm dqn --alpha 0.8 --run_name random_dqn_001
-
-# Random Agent Evaluation (DQN environment, with CSV)
-python your_script.py random --agent_type dqn --algorithm dqn --alpha 0.8 --run_name random_dqn_001 --read_from_csv --csv_path path/to/your/eval_data.csv
+echo "All training and evaluation runs completed."

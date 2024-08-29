@@ -81,7 +81,7 @@ class CampusGymEnv(gym.Env):
         total_courses = len(self.students_per_course)
 
         num_infection_levels = 10
-        num_occupancy_levels = 4
+        num_occupancy_levels = 5
 
         self.action_space = gym.spaces.MultiDiscrete([num_occupancy_levels] * total_courses)
         self.observation_space = gym.spaces.MultiDiscrete([num_infection_levels] * (total_courses + 1))
@@ -130,36 +130,6 @@ class CampusGymEnv(gym.Env):
             "continuous_state": self.campus_state.get_student_status()
         }
         return observation, reward, done, False, info
-
-    # def step(self, action):
-    #     # print(f"Algorithm: {self.algorithm}, Action Type: {type(action)}")
-    #     if self.algorithm == 'q_learning':
-    #         # For q_learning, action is expected to be a list where the last element is alpha
-    #         alpha = action.pop()
-    #         self.campus_state.update_with_action(action)
-    #         observation = np.array(convert_actions_to_discrete(self.campus_state.get_student_status()))
-    #     elif self.algorithm == 'dqn':
-    #         # For dqn, action is a tuple with the first element as actions and the second as alpha
-    #         actions, alpha = action  # Unpack the tuple directly
-    #         self.campus_state.update_with_action(actions)
-    #         observation = np.array(self.campus_state.get_student_status())
-    #     else:
-    #         raise ValueError(f"Unsupported algorithm: {self.algorithm}")
-    #
-    #     # Calculate the reward using the post-action state
-    #     reward = self.campus_state.get_reward(alpha)
-    #
-    #     # Determine if the episode is done
-    #     done = self.campus_state.is_episode_done()
-    #
-    #     info = {
-    #         "allowed": self.campus_state.allowed_students_per_course,
-    #         "infected": self.campus_state.student_status,
-    #         "community_risk": self.campus_state.community_risk,
-    #         "reward": reward,
-    #         "continuous_state": self.campus_state.get_student_status()
-    #     }
-    #     return observation, reward, done, False, info
 
     def reset(self):
         state = self.campus_state.reset()

@@ -1,4 +1,5 @@
 import os
+# os.environ['WANDB_MODE'] = 'offline'
 import yaml
 import gymnasium as gym
 import numpy as np
@@ -8,7 +9,16 @@ from pathlib import Path
 from campus_gym.envs.campus_gym_env import CampusGymEnv
 import optuna
 from optuna.visualization import plot_optimization_history, plot_param_importances, plot_contour, plot_slice
+# Set W&B to offline mode
+import random
+from datetime import datetime
+timestamp = datetime.now().strftime("%H%M")
+# List of words for random name generation
+adjectives = ['swift', 'clever', 'bright', 'brave', 'calm', 'eager', 'fair', 'kind', 'proud', 'wise']
+nouns = ['lion', 'eagle', 'wolf', 'bear', 'fox', 'hawk', 'deer', 'owl', 'tiger', 'panther']
 
+# Generate a random name
+random_name = f"{random.choice(adjectives)}_{random.choice(nouns)}_{timestamp}"
 
 def load_config(file_path):
     with open(file_path, 'r') as file:
@@ -30,9 +40,10 @@ def run_training_and_evaluation(env, shared_config_path, alpha, agent_type, algo
     shared_config = load_config(shared_config_path)
     wandb.init(project=shared_config['wandb']['project'], entity=shared_config['wandb']['entity'])
 
+
     try:
         # Generate a unique run name
-        run_name = f"{wandb.run.name}_{alpha}"
+        run_name = f"{wandb.run.name}-{alpha}"
 
 
         # Training phase
@@ -216,7 +227,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run training, evaluation, or combined training and evaluation.')
     parser.add_argument('mode', choices=['train', 'eval', 'sweep', 'multi', 'optuna', 'train_and_eval'],
                         help='Mode to run the script in.')
-    parser.add_argument('--alpha', type=float, default=0.8, help='Reward parameter alpha.')
+    parser.add_argument('--alpha', type=float, default=0.3, help='Reward parameter alpha.')
     parser.add_argument('--alpha_t', type=float, default=0.05, help='Alpha value for tolerance interval.')
     parser.add_argument('--beta_t', type=float, default=0.9, help='Beta value for tolerance interval.')
     parser.add_argument('--num_runs', type=int, default=10, help='Number of runs for tolerance interval.')
@@ -245,7 +256,7 @@ def main():
         wandb.init(project=shared_config['wandb']['project'], entity=shared_config['wandb']['entity'])
 
         # Generate a unique run name
-        run_name = f"{wandb.run.name}_{args.alpha}"
+        run_name = f"{wandb.run.name}-{args.alpha}"
 
         run_training(env, shared_config_path, args.alpha, args.agent_type, args.algorithm, run_name)
     elif args.mode == 'eval':

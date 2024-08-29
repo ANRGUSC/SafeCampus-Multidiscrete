@@ -872,7 +872,7 @@ class MyopicPolicy:
         # Plot the 2D histogram
         plt.imshow(hist.T, origin='lower', aspect='auto',
                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-                   cmap='viridis')
+                   cmap='gray_r')
 
         plt.colorbar(label='Frequency')
         plt.xlabel('Community Risk')

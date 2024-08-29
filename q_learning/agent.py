@@ -79,7 +79,10 @@ class ExplorationRateDecay:
 
     def get_exploration_rate(self, episode):
         if self.current_decay_function == 1:  # Exponential Decay
-            exploration_rate = self.initial_exploration_rate * np.exp(-episode / self.max_episodes)
+            decay_factor = np.exp(-1 / self.max_episodes)
+            exploration_rate = self.initial_exploration_rate
+            exploration_rate *= decay_factor
+            exploration_rate = max(exploration_rate, self.min_exploration_rate)
 
         elif self.current_decay_function == 2:  # Linear Decay
             exploration_rate = self.initial_exploration_rate - (
@@ -286,7 +289,6 @@ class QLearningAgent:
             self.q_table[index, 1] = row['Reward 50']
             self.q_table[index, 2] = row['Reward 100']
 
-        print("Q-table initialized from CSV.")
 
     def save_q_table(self):
         policy_dir = self.shared_config['directories']['policy_directory']
@@ -301,14 +303,11 @@ class QLearningAgent:
         state_idx = self.all_states.index(str(tuple(state)))
         if mode == 'train':
             if random.uniform(0, 1) > self.exploration_rate:
-                q_values = self.q_table[state_idx]
-                action = np.argmax(q_values)
+                action = np.argmax(self.q_table[state_idx])
             else:
                 action = random.randint(0, self.q_table.shape[1] - 1)
         elif mode == 'test':
             action = np.argmax(self.q_table[state_idx])
-            if action >= self.q_table.shape[1]:
-                raise IndexError(f"Action index {action} is out of bounds for Q-table with shape {self.q_table.shape}")
 
         # Convert the single action index to a list of actions for each course
         num_courses = len(self.env.action_space.nvec)
@@ -335,21 +334,11 @@ class QLearningAgent:
         return discrete_state
 
     def scale_action(self, action, num_actions):
-        """
-        Scale the action value to a range between 0 and 100.
-
-        Parameters:
-        action (int): The action value (e.g., 0, 1, 2, ...).
-        num_actions (int): The number of discrete actions available.
-
-        Returns:
-        float: The scaled action value between 0 and 100.
-        """
         if num_actions <= 1:
             raise ValueError("num_actions must be greater than 1 to scale actions.")
         max_value = 100
         step_size = max_value / (num_actions - 1)
-        return action * step_size
+        return int(action * step_size)
 
     def action_list_to_index(self, action_list, action_spaces):
         """
@@ -368,6 +357,13 @@ class QLearningAgent:
             action_list.append(index % space)
             index //= space
         return list(reversed(action_list))
+
+    def reverse_scale_action(self, scaled_action, num_actions):
+        if num_actions <= 1:
+            raise ValueError("num_actions must be greater than 1 to reverse scale actions.")
+        max_value = 100
+        step_size = max_value / (num_actions - 1)
+        return round(scaled_action / step_size)
 
     def train(self, alpha):
         """Train the agent."""
@@ -419,24 +415,20 @@ class QLearningAgent:
                 action = self._policy('train', c_state)
                 converted_state = str(tuple(c_state))
                 state_idx = self.all_states.index(converted_state)
-
                 episode_visited_states.add(converted_state)
 
-                # Convert the action index back to an action list
-                action_list = self.index_to_action_list(action, self.env.action_space.nvec)
+                # action is already a list of scaled actions, so we don't need to scale it again
+                action_alpha_list = [*action, alpha]
 
-                # Ensure action_list contains integers, not arrays
-                action_list = [int(a[0]) if isinstance(a, np.ndarray) else int(a) for a in action_list]
-
-                # Scale the actions using the scale_action function
-                scaled_action = [self.scale_action(a, n) for a, n in zip(action_list, self.env.action_space.nvec)]
-
-                action_alpha_list = [*scaled_action, alpha]
 
                 next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
                 next_state = self.discretize_state(next_state)
-                action_idx = self.action_list_to_index(action_list, self.env.action_space.nvec)
-                # print('action index:', action_idx)
+
+                # Convert the scaled action back to an index for Q-table update
+                action_idx = self.action_list_to_index(
+                    [self.reverse_scale_action(a, n) for a, n in zip(action, self.env.action_space.nvec)],
+                    self.env.action_space.nvec)
+
                 if action_idx >= self.q_table.shape[1]:
                     raise IndexError(
                         f"Action index {action_idx} is out of bounds for Q-table with shape {self.q_table.shape}")
@@ -460,9 +452,9 @@ class QLearningAgent:
                 td_error = abs(reward + self.discount_factor * next_max - old_value)
                 episode_td_errors.append(td_error)
 
-                if last_action is not None and last_action != action:
+                if last_action is not None and last_action != action_idx:
                     policy_changes += 1
-                last_action = action
+                last_action = action_idx
 
                 q_values_list.append(self.q_table[state_idx])
 
@@ -511,7 +503,7 @@ class QLearningAgent:
                 'space_complexity': self.q_table.nbytes
             }
             writer.writerow(metrics)
-            wandb.log({'cumulative_reward': total_reward})
+            # wandb.log({'cumulative_reward': total_reward})
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
             e_mean_allowed = sum(episode_allowed) / len(episode_allowed)
             e_mean_infected = sum(episode_infected) / len(episode_infected)
@@ -576,9 +568,6 @@ class QLearningAgent:
         infection_safety_percentage = (time_within_x / len(infected_values_over_time)) * 100
 
         # 2. Ensure that `y` allowed students are present at least `z%` of the time.
-        # time_with_y_present = sum(1 for val in allowed_values_over_time if val >= y)
-        # attendance_safety_percentage = (time_with_y_present / len(allowed_values_over_time)) * 100
-        # Example of updating safety checks
         time_with_y_present = sum(1 for val in allowed_values_over_time if val >= y)
         attendance_safety_percentage = (time_with_y_present / len(allowed_values_over_time)) * 100
 
@@ -699,9 +688,6 @@ class QLearningAgent:
 
             loss.backward()
             optimizer.step()
-
-            if epoch % 10 == 0:
-                print(f"Epoch {epoch}, Loss: {loss.item():.6f}")
             loss_values.append(loss.item())
 
         torch.save(model.state_dict(), os.path.join(self.results_subdirectory, 'lyapunov_model.pth'))
@@ -925,21 +911,13 @@ class QLearningAgent:
             flattened_feature = flatten_feature(features[i])
             flattened_next_feature = flatten_feature(features[i + 1])
 
-            print(f"Flattened feature (current): {flattened_feature}")
-            print(f"Flattened feature (next): {flattened_next_feature}")
-
             feature_tensor = torch.tensor(flattened_feature, dtype=torch.float32)
             next_feature_tensor = torch.tensor(flattened_next_feature, dtype=torch.float32)
-
-            print(f"Feature tensor (current): {feature_tensor}")
-            print(f"Next feature tensor (next): {next_feature_tensor}")
 
             try:
                 V_t = V(feature_tensor)
                 V_t_plus_1 = V(next_feature_tensor)
                 delta_V = V_t_plus_1 - V_t
-
-                print(f"V_t: {V_t}, V_t_plus_1: {V_t_plus_1}, delta_V: {delta_V}")
 
                 if features[i][1] == 0:  # DFE region
                     dfe_points += 1
@@ -1009,11 +987,10 @@ class QLearningAgent:
             else:
                 P[i, :] /= row_sum
 
-        print(f"Normalized Transition Matrix:\n{P}")
+
 
         # Solve for the stationary distribution
         eigvals, eigvecs = np.linalg.eig(P.T)
-        print(f"Eigenvalues of Transition Matrix:\n{eigvals}")
 
         # Identify the eigenvectors corresponding to an eigenvalue of 1
         close_to_one = np.isclose(eigvals, 1)
@@ -1237,7 +1214,7 @@ class QLearningAgent:
         # Plot the 2D histogram
         plt.imshow(hist.T, origin='lower', aspect='auto',
                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
-                   cmap='viridis')
+                   cmap='gray_r')
 
         plt.colorbar(label='Frequency')
         plt.xlabel('Community Risk')
@@ -1446,10 +1423,51 @@ class QLearningAgent:
             )
             final_states = self.simulate_steady_state(alpha=alpha)
             self.plot_simulated_steady_state(final_states, run_name, alpha)
+            # Plotting
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
 
+            # Subplot 1: Community Risk and Allowed Values
+            ax1.set_xlabel('Week')
+            ax1.set_ylabel('Community Risk', color='tab:green')
+            ax1.plot(range(1, len(self.community_risk_values) + 1), self.community_risk_values, marker='s',
+                     linestyle='--',
+                     color='tab:green', label='Community Risk')
+            ax1.tick_params(axis='y', labelcolor='tab:green')
+
+            ax1b = ax1.twinx()
+            ax1b.set_ylabel('Allowed Values', color='tab:orange')
+            ax1b.bar(range(1, len(allowed_values_over_time) + 1), allowed_values_over_time, color='tab:orange',
+                     alpha=0.6,
+                     width=0.4, align='center', label='Allowed')
+            ax1b.tick_params(axis='y', labelcolor='tab:orange')
+
+            ax1.legend(loc='upper left')
+            ax1b.legend(loc='upper right')
+
+            # Subplot 2: Infected Students Over Time
+            ax2.set_xlabel('Week')
+            ax2.set_ylabel('Number of Infected Students', color='tab:blue')
+            ax2.plot(range(1, len(infected_values_over_time) + 1), infected_values_over_time, marker='o', linestyle='-',
+                     color='tab:blue', label='Infected')
+            ax2.tick_params(axis='y', labelcolor='tab:blue')
+
+            ax2.legend(loc='upper left')
+
+            # Set x-ticks to show fewer labels and label weeks from 1 to n
+            ticks = range(0, len(self.community_risk_values),
+                          max(1, len(self.community_risk_values) // 10))  # Show approximately 10 ticks
+            labels = [f'Week {i + 1}' for i in ticks]
+
+            ax1.set_xticks(ticks)
+            ax1.set_xticklabels(labels, rotation=45)
+            ax2.set_xticks(ticks)
+            ax2.set_xticklabels(labels, rotation=45)
+
+            # Adjust layout and save the plot
+            plt.tight_layout()
+            plt.savefig(os.path.join(evaluation_subdirectory, f"evaluation_plot_{run_name}.png"))
+            plt.show()
             print("Final plotting complete.")
-
-
         return total_rewards
 
     def moving_average(self, data, window_size):
@@ -1670,18 +1688,38 @@ class QLearningAgent:
             e_return = []
             step = 0
 
+
+
             while not terminated:
                 action = self._policy('train', c_state)
                 converted_state = str(tuple(c_state))
                 state_idx = self.all_states.index(converted_state)
-                c_list_action = [i * 50 for i in action]  # scale 0, 1, 2 to 0, 50, 100
+                # Convert the action index back to an action list
+                action_list = self.index_to_action_list(action, self.env.action_space.nvec)
 
-                action_alpha_list = [*c_list_action, alpha]
+                # Ensure action_list contains integers, not arrays
+                action_list = [int(a[0]) if isinstance(a, np.ndarray) else int(a) for a in action_list]
+
+                # Scale the actions using the scale_action function
+                scaled_action = [self.scale_action(a, n) for a, n in zip(action_list, self.env.action_space.nvec)]
+
+                action_alpha_list = [*scaled_action, alpha]
 
                 # Execute the action and observe the next state and reward
                 next_state, reward, terminated, _, info = self.env.step(action_alpha_list)
-                action_idx = sum([a * (3 ** i) for i, a in enumerate(action)])  # Convert action list to single index
-                old_value = self.q_table[state_idx, action_idx]
+                next_state = self.discretize_state(next_state)
+                action_idx = self.action_list_to_index(action_list, self.env.action_space.nvec)
+                # print('action index:', action_idx)
+                if action_idx >= self.q_table.shape[1]:
+                    raise IndexError(
+                        f"Action index {action_idx} is out of bounds for Q-table with shape {self.q_table.shape}")
+
+                try:
+                    old_value = self.q_table[state_idx, action_idx]
+                except IndexError as e:
+                    logging.error(f"IndexError in Q-table access: {e}")
+                    raise
+
                 next_max = np.max(self.q_table[self.all_states.index(str(tuple(next_state)))])
                 new_value = (1 - self.learning_rate) * old_value + self.learning_rate * (
                         reward + self.discount_factor * next_max)

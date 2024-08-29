@@ -1,5 +1,5 @@
 wandb:
-  project: "indabafinal-dqn"
+  project: "ml4h-tabular"
 #  project: "campus-indoor-model"
   entity: "safe-campus"
 

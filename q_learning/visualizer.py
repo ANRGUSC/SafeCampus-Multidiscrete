@@ -7,6 +7,7 @@ from tabulate import tabulate
 import seaborn as sns
 import matplotlib.patches as mpatches
 import colorsys
+import ast
 
 def generate_distinct_colors(n):
     HSV_tuples = [(x * 1.0 / n, 0.5, 0.95) for x in range(n)]  # Adjusted the brightness for better distinction
@@ -27,7 +28,7 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
     color_map = {i: colors[i] for i in range(unique_actions)}
 
     fig, axes = plt.subplots(1, num_courses, figsize=(5 * num_courses, 5), squeeze=False)
-    fig.suptitle(f'{run_name}', fontsize=16)
+    fig.suptitle(f'Tabular-{alpha}', fontsize=16)
 
     for course in range(num_courses):
         actions = {}
@@ -79,103 +80,6 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
     file_paths.append(file_path)
 
     return file_paths
-
-
-
-
-
-
-
-
-#
-# def visualize_all_states(q_table, all_states, states, run_name, max_episodes, alpha, results_subdirectory):
-#     method_name = "viz all states"
-#     actions = {}
-#     for i in states:
-#         action = np.argmax(q_table[all_states.index(str(i))])
-#         actions[(i[0], i[1])] = action
-#
-#     x_values = []
-#     y_values = []
-#     colors = []
-#     for k, v in actions.items():
-#         x_values.append(k[0])
-#         y_values.append(k[1])
-#         colors.append(v)
-#
-#     c = ListedColormap(['red', 'green', 'blue'])
-#
-#     plt.figure(figsize=(10, 10))
-#     scatter = plt.scatter(y_values, x_values, c=colors, s=500, marker='s', cmap=c)
-#     plt.title(f"{method_name} - {run_name}")
-#     plt.xlabel("Community risk")
-#     plt.ylabel("Infected students")
-#
-#     # Create a legend with explicit labels
-#     legend_labels = ['Allow no one', '50% allowed', 'Allow everyone']
-#     legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=color, markersize=10) for color in c.colors]
-#     plt.legend(legend_handles, legend_labels, loc='center left', bbox_to_anchor=(1, 0.5), fontsize='x-large')
-#
-#     file_name = f"{max_episodes}-{method_name}-{run_name}-{alpha}.png"
-#     file_path = f"{results_subdirectory}/{file_name}"
-#     plt.savefig(file_path, bbox_inches='tight')  # Use bbox_inches='tight' to include the legend in the saved image
-#     plt.close()
-#     return file_path
-
-# def visualize_all_states(q_table, all_states, states, run_name, max_episodes, alpha, results_subdirectory, students_per_course):
-#     method_name = "viz all states"
-#
-#     # Determine the number of dimensions
-#     state_size = len(states[0])
-#     num_infected_dims = state_size - 1  # Last dimension is community risk
-#
-#     file_paths = []
-#
-#     colors = ['#FF9999', '#66B2FF', '#99FF99']  # Light Red, Light Blue, Light Green
-#     color_map = {0: colors[0], 1: colors[1], 2: colors[2]}
-#
-#     for infected_dim in range(num_infected_dims):
-#         actions = {}
-#         for state in states:
-#             action = np.argmax(q_table[all_states.index(str(state))])
-#             actions[(state[infected_dim], state[-1])] = action  # (infected, community risk)
-#
-#         x_values = []  # Community risk
-#         y_values = []  # Infected
-#         color_values = []
-#         for k, v in actions.items():
-#             y_values.append(k[0])  # Infected dimension
-#             x_values.append(k[1])  # Community risk
-#             color_values.append(color_map[v])
-#
-#         total_students = students_per_course[infected_dim]
-#         fig, ax = plt.subplots(figsize=(12, 10))
-#         scatter = ax.scatter(x_values, y_values, c=color_values, s=500, marker='s')
-#
-#         # Adjust y-axis limits to show full markers
-#         y_margin = total_students * 0.05  # 5% margin
-#         ax.set_ylim(-y_margin, total_students + y_margin)
-#
-#         # Adjust x-axis limits to show full markers
-#         ax.set_xlim(-0.05, 1.05)
-#
-#         # Create a custom legend
-#         legend_elements = [mpatches.Patch(facecolor=colors[i], edgecolor='black', label=f'Allow {v}')
-#                            for i, v in enumerate([0, 50, 100])]
-#         fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
-#                    ncol=3, fontsize='large')
-#
-#         plt.tight_layout()
-#         plt.subplots_adjust(bottom=0.15, wspace=0.3)
-#
-#         file_name = f"{max_episodes}-{method_name}-{run_name}-{alpha}-infected_dim_{infected_dim + 1}.png"
-#         file_path = f"{results_subdirectory}/{file_name}"
-#         plt.savefig(file_path, bbox_inches='tight', dpi=300)
-#         plt.close()
-#
-#         file_paths.append(file_path)
-#
-#     return file_paths
 
 def visualize_q_table(q_table, results_subdirectory, episode):
     method_name = "viz q table"
@@ -229,7 +133,6 @@ def visualize_variance_in_rewards_heatmap(rewards_per_episode, results_subdirect
     num_bins = len(rewards_per_episode) // bin_size
     binned_rewards_var = [np.var(rewards_per_episode[i * bin_size: (i + 1) * bin_size]) for i in
                           range(len(rewards_per_episode) // bin_size)]
-    print("num bins", num_bins, "rewars per episode", len(rewards_per_episode), "binned rewards var", len(binned_rewards_var))
 
 
     # Reshape to a square since we're assuming num_bins is a perfect square
@@ -333,142 +236,6 @@ def visualize_infected_vs_community_risk_table(inf_comm_dict, alpha, results_sub
     plt.close()
 
     return file_path
-
-# def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
-#     title = f'State Visitation Frequency During Training with alpha: = {alpha}'
-#     # Create a bar chart
-#     plt.figure(figsize=(10, 6))  # Adjust figure size as needed
-#     plt.bar(states, visit_counts)
-#
-#     # Rotate x-axis labels if there are many states for better readability
-#     plt.xticks(rotation=90)
-#
-#     # Add labels and title
-#     plt.xlabel('State')
-#     plt.ylabel('Visitation Count')
-#     plt.title(title)
-#
-#     plt.tight_layout()
-#     file_path = f"{results_subdirectory}/states_visited.png"
-#     plt.savefig(file_path)
-#     plt.close()
-#     return file_path
-# def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
-#     # Sort states and corresponding visit counts
-#     sorted_indices = sorted(range(len(states)), key=lambda i: states[i])
-#     sorted_states = [states[i] for i in sorted_indices]
-#     sorted_visit_counts = [visit_counts[i] for i in sorted_indices]
-#
-#     title = f'State Visitation Frequency During Training with alpha: = {alpha}'
-#
-#     # Create a bar chart
-#     plt.figure(figsize=(10, 6))  # Adjust figure size as needed
-#     plt.bar(sorted_states, sorted_visit_counts)
-#
-#     # Rotate x-axis labels if there are many states for better readability
-#     plt.xticks(rotation=90)
-#
-#     # Add labels and title
-#     plt.xlabel('State')
-#     plt.ylabel('Visitation Count')
-#     plt.title(title)
-#
-#     plt.tight_layout()
-#     file_path = f"{results_subdirectory}/states_visited.png"
-#     plt.savefig(file_path)
-#     plt.close()
-#
-#     return file_path
-import ast
-# def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
-#     print('Original states:', states)
-#
-#     def parse_state(state):
-#         # print(f"Parsing state: {state} (type: {type(state)})")
-#         if isinstance(state, (list, tuple)) and len(state) == 2:
-#             try:
-#                 return [float(x) for x in state]
-#             except ValueError:
-#                 pass
-#         elif isinstance(state, str):
-#             try:
-#                 # Attempt to evaluate the string to convert it to a tuple or list
-#                 evaluated_state = ast.literal_eval(state)
-#                 if isinstance(evaluated_state, (list, tuple)) and len(evaluated_state) == 2:
-#                     return [float(x) for x in evaluated_state]
-#             except (ValueError, SyntaxError):
-#                 print(f"Error parsing state: {state}")
-#                 return None
-#         else:
-#             print(f"Unexpected state format: {state}")
-#             return None
-#
-#     # Parse states
-#     parsed_states = [parse_state(state) for state in states]
-#     valid_states = [state for state in parsed_states if state is not None]
-#
-#     if not valid_states:
-#         print("Error: No valid states found after parsing")
-#         plt.figure(figsize=(10, 6))
-#         plt.text(0.5, 0.5, "Error: No valid states found after parsing", ha='center', va='center')
-#         plt.axis('off')
-#         error_path = f"{results_subdirectory}/states_visited_error_α_{alpha}.png"
-#         plt.savefig(error_path)
-#         plt.close()
-#         return error_path
-#
-#     # Create a dictionary of state: visit_count for valid states
-#     state_visits = {tuple(state): count for state, count in zip(valid_states, visit_counts) if state is not None}
-#
-#     # Extract the first two dimensions for x and y coordinates
-#     x_coords = [state[0] for state in valid_states]
-#     y_coords = [state[1] for state in valid_states]
-#
-#     # Print debugging information
-#     # print(f"Number of valid states: {len(valid_states)}")
-#     # print(f"Sample parsed states: {valid_states[:5]}")
-#     # print(f"Sample x_coords: {x_coords[:5]}")
-#     # print(f"Sample y_coords: {y_coords[:5]}")
-#
-#     # Create a 2D grid for the heatmap
-#     x_unique = sorted(set(x_coords))
-#     y_unique = sorted(set(y_coords))
-#     grid = np.zeros((len(y_unique), len(x_unique)))
-#
-#     # Fill the grid with visit counts
-#     for state, count in state_visits.items():
-#         i = y_unique.index(state[1])
-#         j = x_unique.index(state[0])
-#         grid[i, j] += count  # Sum counts for states sharing the same first two dimensions
-#
-#     # Print grid information
-#     # print(f"Grid shape: {grid.shape}")
-#     # print(f"Grid min: {np.min(grid)}, max: {np.max(grid)}")
-#
-#     # Create a heatmap
-#     plt.figure(figsize=(12, 10))
-#     plt.imshow(grid, cmap='plasma', interpolation='nearest', origin='lower')
-#     cbar = plt.colorbar(label='Visitation Count')
-#     cbar.ax.tick_params(labelsize=10)
-#
-#     # Customize the plot
-#     plt.title(f'State Visitation Heatmap (α={alpha})', fontsize=16)
-#     plt.xlabel('Infected Students', fontsize=14)
-#     plt.ylabel('Community Risk', fontsize=14)
-#     plt.xticks(range(len(x_unique)), [f'{int(x)}' for x in x_unique], fontsize=10, rotation=45)
-#     plt.yticks(range(len(y_unique)), [f'{int(y)}' for y in y_unique], fontsize=10)
-#     plt.grid(True, color='white', linestyle='-', linewidth=0.5, alpha=0.5)
-#
-#     plt.tight_layout()
-#
-#     # Save the plot
-#     file_path = f"{results_subdirectory}/states_visited_heatmap_α_{alpha}.png"
-#     plt.savefig(file_path, dpi=300, bbox_inches='tight')
-#     plt.close()
-#
-#     return file_path
-
-
 
 def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
     def parse_state(state):
