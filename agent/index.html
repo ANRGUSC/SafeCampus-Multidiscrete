@@ -12,26 +12,24 @@
         <meta name="author" content="Developed by Autonomous Networks Research Group">
       
       
-        <link rel="canonical" href="https://your-github-username.github.io/your-repo-name/">
+        <link rel="canonical" href="https://your-github-username.github.io/your-repo-name/agent/">
       
       
       
-        <link rel="next" href="installation/">
       
-      
-      <link rel="icon" href="assets/images/favicon.png">
+      <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.3">
     
     
       
-        <title>SafeCampus</title>
+        <title>Creating a Custom Agent - SafeCampus</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.50c56a3b.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.50c56a3b.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -50,7 +48,7 @@
       
     
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -74,7 +72,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#safecampus" class="md-skip">
+        <a href="#creating-a-custom-agent" class="md-skip">
           Skip to content
         </a>
       
@@ -90,7 +88,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="SafeCampus" class="md-header__button md-logo" aria-label="SafeCampus" data-md-component="logo">
+    <a href=".." title="SafeCampus" class="md-header__button md-logo" aria-label="SafeCampus" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
@@ -110,7 +108,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Home
+              Creating a Custom Agent
             
           </span>
         </div>
@@ -185,7 +183,7 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="SafeCampus" class="md-nav__button md-logo" aria-label="SafeCampus" data-md-component="logo">
+    <a href=".." title="SafeCampus" class="md-nav__button md-logo" aria-label="SafeCampus" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
@@ -200,30 +198,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Home
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -232,35 +210,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#evaluation-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      Evaluation Pipeline
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -272,7 +221,7 @@
   
   
     <li class="md-nav__item">
-      <a href="installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -292,7 +241,7 @@
   
   
     <li class="md-nav__item">
-      <a href="configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -312,7 +261,7 @@
   
   
     <li class="md-nav__item">
-      <a href="usage/" class="md-nav__link">
+      <a href="../usage/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -332,7 +281,7 @@
   
   
     <li class="md-nav__item">
-      <a href="results/" class="md-nav__link">
+      <a href="../results/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -372,9 +321,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#evaluation-pipeline" class="md-nav__link">
+  <a href="#steps-to-create-a-custom-agent" class="md-nav__link">
     <span class="md-ellipsis">
-      Evaluation Pipeline
+      Steps to Create a Custom Agent
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#training-your-custom-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Training Your Custom Agent
     </span>
   </a>
   
@@ -395,10 +353,82 @@
                   
 
 
-<h1 id="safecampus">SafeCampus<a class="headerlink" href="#safecampus" title="Permanent link">&para;</a></h1>
-<p>A tool for evaluating safety of control policies for an indoor stochastic epidemic model.</p>
-<h2 id="evaluation-pipeline">Evaluation Pipeline<a class="headerlink" href="#evaluation-pipeline" title="Permanent link">&para;</a></h2>
-<p><img alt="Diagram" src="docs/SafeCampusEval.png" /></p>
+<h1 id="creating-a-custom-agent">Creating a Custom Agent<a class="headerlink" href="#creating-a-custom-agent" title="Permanent link">&para;</a></h1>
+<p>This guide explains how to create and train a custom agent using our reinforcement learning tool. We'll use the default DQN agent as a template to create a new agent.</p>
+<h2 id="steps-to-create-a-custom-agent">Steps to Create a Custom Agent<a class="headerlink" href="#steps-to-create-a-custom-agent" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Choose a Base Agent</strong>: Start with the default DQN agent as your template.</p>
+</li>
+<li>
+<p><strong>Create New Files</strong>:</p>
+</li>
+<li>Create a new Python file for your agent, e.g., <code>ppo_custom_agent.py</code>.</li>
+<li>
+<p>Create a new configuration file, e.g., <code>ppo_custom_config.yaml</code>.</p>
+</li>
+<li>
+<p><strong>Update Neural Network Architecture</strong>:</p>
+</li>
+<li>In your new agent file, define the new neural network architecture.</li>
+<li>
+<p>For example, if creating a PPO agent, define separate Actor and Critic networks.</p>
+</li>
+<li>
+<p><strong>Update Agent Class</strong>:</p>
+</li>
+<li>Rename the agent class, e.g., <code>class PPOCustomAgent(DQNCustomAgent):</code>.</li>
+<li>
+<p>Update the <code>__init__</code> method to initialize new components (e.g., Actor and Critic networks, optimizers).</p>
+</li>
+<li>
+<p><strong>Update Training Loop</strong>:</p>
+</li>
+<li>Modify the <code>train</code> method to implement your custom training algorithm.</li>
+<li>
+<p>Update the main training loop in the <code>while not done:</code> block.</p>
+</li>
+<li>
+<p><strong>Create Configuration File</strong>:</p>
+</li>
+<li>Create a new YAML configuration file for your custom agent.</li>
+<li>
+<p>Include all necessary hyperparameters for your algorithm.</p>
+</li>
+<li>
+<p><strong>Update Initialization</strong>:</p>
+</li>
+<li>In the agent's <code>__init__</code> method, load and use the new configuration file.</li>
+<li>
+<p>Initialize any new attributes or components specific to your agent.</p>
+</li>
+<li>
+<p><strong>Update Model Saving and Loading</strong>:</p>
+</li>
+<li>
+<p>Modify <code>save_model</code> and <code>load_model</code> methods to handle your custom model structure.</p>
+</li>
+<li>
+<p><strong>Update Evaluation Methods</strong>:</p>
+</li>
+<li>
+<p>In the <code>evaluate</code> method, update any parts that use the model for action selection or value estimation.</p>
+</li>
+<li>
+<p><strong>Update Visualization Methods</strong>:</p>
+<ul>
+<li>Modify methods like <code>visualize_all_states</code> to work with your new model structure.</li>
+</ul>
+</li>
+</ol>
+<h2 id="training-your-custom-agent">Training Your Custom Agent<a class="headerlink" href="#training-your-custom-agent" title="Permanent link">&para;</a></h2>
+<p>To train your custom agent:</p>
+<ol>
+<li>Update the main training script to use your new agent class.</li>
+<li>Ensure all necessary configuration files are in place.</li>
+<li>Run the training script with appropriate parameters for your custom agent.</li>
+</ol>
+<p>Remember to thoroughly test your custom agent and compare its performance with baseline agents to ensure it's working as expected.</p>
 
 
 
@@ -445,10 +475,10 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": ".", "features": [], "search": "assets/javascripts/workers/search.f886a092.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.f886a092.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="assets/javascripts/bundle.d7c377c4.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7c377c4.min.js"></script>
       
     
   </body>
