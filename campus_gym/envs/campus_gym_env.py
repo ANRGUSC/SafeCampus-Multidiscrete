@@ -105,7 +105,9 @@ class CampusGymEnv(gym.Env):
 
         elif self.algorithm == 'dqn':
             # For dqn, action is a tuple with the first element as actions and the second as alpha
-            actions, alpha = action  # Unpack the tuple directly
+            actions, alpha = action[0], action[1]  # This unpacks the list into actions and alpha
+            if not isinstance(actions, list):
+                actions = [actions]  # Ensure actions is a list
 
             # Update campus state with the raw actions directly
             self.campus_state.update_with_action(actions)
@@ -131,8 +133,13 @@ class CampusGymEnv(gym.Env):
         }
         return observation, reward, done, False, info
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        # Seed the environment's RNG
+        super().reset(seed=seed)
+
+        # Reset the campus state
         state = self.campus_state.reset()
+
         if self.algorithm == 'q_learning':
             discrete_state = convert_actions_to_discrete(state)
             return np.array(discrete_state), {}

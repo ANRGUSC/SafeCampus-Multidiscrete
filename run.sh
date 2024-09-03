@@ -8,14 +8,11 @@ csv_path="aggregated_weekly_risk_levels.csv"
 
 # Loop through each alpha value and run the DQN and Myopic agents sequentially
 for alpha in "${alphas[@]}"; do
-#  echo "Running DQN agent training and evaluation with alpha = $alpha"
-#  python3 main.py train_and_eval --alpha "$alpha" --agent_type "dqn_custom" --csv_path "$csv_path" --algorithm "dqn"
+  echo "Running DQN agent training and evaluation with alpha = $alpha"
+  python3 main.py train_and_eval --alpha "$alpha" --agent_type "dqn_custom" --csv_path "$csv_path" --algorithm "dqn"
 
-#  echo "Running A2C agent training and evaluation with alpha = $alpha"
-#  python3 main.py train_and_eval --alpha "$alpha" --agent_type "a2c_custom" --csv_path "$csv_path" --algorithm "dqn"
-
-  echo "Running PPO agent training and evaluation with alpha = $alpha"
-  python3 main.py train_and_eval --alpha "$alpha" --agent_type "ppo_custom" --csv_path "$csv_path" --algorithm "dqn"
+#  echo "Running PPO agent training and evaluation with alpha = $alpha"
+#  python3 main.py train_and_eval --alpha "$alpha" --agent_type "ppo_custom" --csv_path "$csv_path" --algorithm "dqn"
 
 #  echo "Running Tabular Q agent training and evaluation with alpha = $alpha"
 #  python3 main.py train_and_eval --alpha "$alpha" --agent_type "q_learning" --csv_path "$csv_path" --algorithm "q_learning"

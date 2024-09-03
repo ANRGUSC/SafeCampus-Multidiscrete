@@ -21,6 +21,7 @@ import seaborn as sns
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from io import StringIO
 from scipy.signal import argrelextrema
 SEED = 100
 random.seed(SEED)
@@ -513,6 +514,8 @@ class QLearningAgent:
 
 
         csvfile.close()
+        csv_data = open(csv_file_path, 'r').read()
+        print('CSV file path:', csv_file_path)
         print("Training complete.")
         # Calculate the means for allowed and infected
         mean_allowed = round(sum(allowed_means_per_episode) / len(allowed_means_per_episode))
@@ -528,6 +531,7 @@ class QLearningAgent:
         self.save_q_table()
 
         self.save_training_log_to_csv(training_log)
+        self.plot_metrics(csv_data)
 
         visualize_q_table(self.q_table, self.results_subdirectory, self.max_episodes)
 
@@ -539,6 +543,27 @@ class QLearningAgent:
                                            alpha, self.results_subdirectory)
 
         return actual_rewards
+
+    def plot_metrics(self, csv_data):
+        # Convert the CSV string to a DataFrame using StringIO
+        df = pd.read_csv(StringIO(csv_data))
+
+        # Define metrics to plot
+        metrics = ['cumulative_reward', 'average_reward', 'discounted_reward',
+                   'q_value_change', 'sample_efficiency', 'policy_entropy',
+                   'space_complexity']
+
+        # Plot each metric separately
+        for metric in metrics:
+            plt.figure(figsize=(10, 6))
+            plt.plot(df['episode'], df[metric])
+            plt.title(metric.replace('_', ' ').title())
+            plt.xlabel('Episode')
+            plt.ylabel('Value')
+            plt.grid(True)
+            plt.tight_layout()
+            plt.savefig(os.path.join(self.results_subdirectory, f'{metric}.png'))
+
 
     def save_training_log_to_csv(self, training_log, init_method='default-1'):
         # Define the CSV file path
@@ -1439,14 +1464,6 @@ class QLearningAgent:
             f"Data lengths: allowed={len(all_allowed_values)}, infected={len(all_infected_values)}, community_risk={len(all_community_risk_values)}")
 
         # Call the plotting function with all accumulated data
-
-        self.plot_evaluation_results(
-            all_allowed_values,
-            all_infected_values,
-            all_community_risk_values,
-            run_name,
-            evaluation_subdirectory
-        )
         # final_states = self.simulate_steady_state(alpha=alpha)
         # self.plot_simulated_steady_state(final_states, run_name, alpha)
         # Plotting
@@ -1479,7 +1496,15 @@ class QLearningAgent:
         self.log_all_states_visualizations(self.q_table, self.all_states, self.states, self.run_name,
                                            self.max_episodes,
                                            alpha, self.results_subdirectory)
+        self.plot_evaluation_results(
+            all_allowed_values,
+            all_infected_values,
+            all_community_risk_values,
+            run_name,
+            evaluation_subdirectory
+        )
         print("Final plotting complete.")
+        print(f"Results saved to {evaluation_subdirectory}")
 
 
         return total_rewards
