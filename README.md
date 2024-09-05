@@ -152,25 +152,8 @@ The Safety Set Identification plot shows the states where the model's policy mai
 - **`safety_set_plot_episode_<run_name>.png`**: A plot showing the safety set for a specific episode.
 
 
-### 2.4. Transition Matrix
 
-The Transition Matrix visualizes the probability of transitioning from one state to another based on the community risk values. This matrix is useful for understanding the model's behavior under varying conditions.
-
-- **`transition_matrix_<run_name>.png`**: The transition probability matrix based on community risk.
-
-### 2.6. Q-Table Visualization (Q-learning only)
-
-For Q-learning, a heatmap of the Q-table is generated to visualize the learned state-action values.
-
-- **`q_table_heatmap.png`**: Heatmap visualization of the Q-table.
-
-### 2.7. States Visited Visualization
-
-Heatmaps showing the frequency of visited states during training are generated for both DQN and Q-learning.
-
-- Multiple PNG files with names containing `states_visited` are generated in the results subdirectory.
-
-### 2.8. Evaluation Results Plot
+### 2.4. Evaluation Results Plot
 
 For Q-learning, an evaluation plot is generated showing the allowed students, infected individuals, and community risk over time.
 
@@ -188,22 +171,6 @@ The safety set conditions are logged in the `safety_conditions_<run_name>.csv` f
 - **Allowed Students ≥ Threshold (%)**: The percentage of time the allowed students met or exceeded the threshold.
 - **Safety Condition Met (Attendance)**: Indicates whether the attendance safety condition was met.
 
-### 3.2. Control Barrier Functions (CBFs)
-
-The CBFs are used to ensure that the system maintains safety constraints over time. The verification of forward invariance is logged in the `cbf_verification.txt` file.
-
-- **CBF for Infections**: Ensures that the number of infected individuals does not exceed the threshold.
-- **CBF for Attendance**: Ensures that the number of allowed students meets the required threshold.
-
-## 4. Final Results Summary
-
-At the end of the evaluation process, a summary of the final results is saved in the `final_results.txt` file. This summary includes:
-
-- Cumulative Reward across all episodes
-- Average Reward per episode
-- Safety condition percentages for infections and attendance
-- Forward Invariance verification
-- Stability assessment in the DFE and EE regions
 
 This file provides a quick overview of the model's performance and safety compliance across the entire evaluation period.
 
