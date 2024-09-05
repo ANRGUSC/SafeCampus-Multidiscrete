@@ -3,7 +3,7 @@ import csv
 import logging
 
 class CampusModel:
-    def __init__(self, num_courses=1, students_per_course=100, max_weeks=100, initial_infection_rate=0.2, read_weeks_from_csv=False, csv_path=None):
+    def __init__(self, num_courses=1, students_per_course=100, max_weeks=52, initial_infection_rate=0.2, read_weeks_from_csv=False, csv_path=None):
         self.num_courses = num_courses
 
         # Override students per course and initial infection based on fixed values

@@ -21,6 +21,7 @@ import seaborn as sns
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from io import StringIO
 from scipy.signal import argrelextrema
 SEED = 100
 random.seed(SEED)
@@ -445,6 +446,7 @@ class QLearningAgent:
                 episode_allowed.append(sum(info.get('allowed', [])))  # Sum all courses' allowed students
                 episode_infected.append(sum(info.get('infected', [])))
 
+
                 new_value = (1 - self.learning_rate) * old_value + self.learning_rate * (
                         reward + self.discount_factor * next_max)
                 self.q_table[state_idx, action_idx] = new_value
@@ -469,6 +471,10 @@ class QLearningAgent:
 
                 # print(info)
 
+            e_mean_allowed = sum(episode_allowed) / len(episode_allowed)
+            e_mean_infected = sum(episode_infected) / len(episode_infected)
+            allowed_means_per_episode.append(e_mean_allowed)
+            infected_means_per_episode.append(e_mean_infected)
             avg_episode_return = sum(e_return) / len(e_return)
             cumulative_rewards.append(total_reward)
             rewards_per_episode.append(avg_episode_return)
@@ -505,14 +511,13 @@ class QLearningAgent:
             writer.writerow(metrics)
             # wandb.log({'cumulative_reward': total_reward})
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
-            e_mean_allowed = sum(episode_allowed) / len(episode_allowed)
-            e_mean_infected = sum(episode_infected) / len(episode_infected)
-            allowed_means_per_episode.append(e_mean_allowed)
-            infected_means_per_episode.append(e_mean_infected)
+
             # Increment the episode count
 
 
         csvfile.close()
+        csv_data = open(csv_file_path, 'r').read()
+        print('CSV file path:', csv_file_path)
         print("Training complete.")
         # Calculate the means for allowed and infected
         mean_allowed = round(sum(allowed_means_per_episode) / len(allowed_means_per_episode))
@@ -520,7 +525,7 @@ class QLearningAgent:
 
 
         # Save the results in a separate CSV file
-        summary_file_path = os.path.join(self.results_subdirectory, 'mean_allowed_infected.csv')
+        summary_file_path = os.path.join(self.results_subdirectory, f"summary_{self.run_name}.csv")
         with open(summary_file_path, 'w', newline='') as summary_csvfile:
             summary_writer = csv.DictWriter(summary_csvfile, fieldnames=['mean_allowed', 'mean_infected'])
             summary_writer.writeheader()
@@ -528,6 +533,7 @@ class QLearningAgent:
         self.save_q_table()
 
         self.save_training_log_to_csv(training_log)
+        self.plot_metrics(csv_data)
 
         visualize_q_table(self.q_table, self.results_subdirectory, self.max_episodes)
 
@@ -539,6 +545,27 @@ class QLearningAgent:
                                            alpha, self.results_subdirectory)
 
         return actual_rewards
+
+    def plot_metrics(self, csv_data):
+        # Convert the CSV string to a DataFrame using StringIO
+        df = pd.read_csv(StringIO(csv_data))
+
+        # Define metrics to plot
+        metrics = ['cumulative_reward', 'average_reward', 'discounted_reward',
+                   'q_value_change', 'sample_efficiency', 'policy_entropy',
+                   'space_complexity']
+
+        # Plot each metric separately
+        for metric in metrics:
+            plt.figure(figsize=(10, 6))
+            plt.plot(df['episode'], df[metric])
+            plt.title(metric.replace('_', ' ').title())
+            plt.xlabel('Episode')
+            plt.ylabel('Value')
+            plt.grid(True)
+            plt.tight_layout()
+            plt.savefig(os.path.join(self.results_subdirectory, f'{metric}.png'))
+
 
     def save_training_log_to_csv(self, training_log, init_method='default-1'):
         # Define the CSV file path
@@ -1094,6 +1121,20 @@ class QLearningAgent:
         finally:
             plt.close()
 
+        # Calculate the mean of allowed and infected values
+        mean_allowed = sum(allowed_values_over_time) / len(allowed_values_over_time)
+        mean_infected = sum(infected_values_over_time) / len(infected_values_over_time)
+
+        # Save the means to a CSV file
+        csv_file_path = os.path.join(evaluation_subdirectory, f"evaluation_summary_{run_name}.csv")
+        file_exists = os.path.isfile(csv_file_path)
+
+        with open(csv_file_path, 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=['Mean Allowed', 'Mean Infected'])
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow({'Mean Allowed': mean_allowed, 'Mean Infected': mean_infected})
+
     def evaluate_lyapunov(self, V, eval_states, alpha):
         with torch.no_grad():
             eval_states = eval_states.float()  # Ensure the eval_states are Float32
@@ -1439,14 +1480,6 @@ class QLearningAgent:
             f"Data lengths: allowed={len(all_allowed_values)}, infected={len(all_infected_values)}, community_risk={len(all_community_risk_values)}")
 
         # Call the plotting function with all accumulated data
-
-        self.plot_evaluation_results(
-            all_allowed_values,
-            all_infected_values,
-            all_community_risk_values,
-            run_name,
-            evaluation_subdirectory
-        )
         # final_states = self.simulate_steady_state(alpha=alpha)
         # self.plot_simulated_steady_state(final_states, run_name, alpha)
         # Plotting
@@ -1479,7 +1512,15 @@ class QLearningAgent:
         self.log_all_states_visualizations(self.q_table, self.all_states, self.states, self.run_name,
                                            self.max_episodes,
                                            alpha, self.results_subdirectory)
+        self.plot_evaluation_results(
+            all_allowed_values,
+            all_infected_values,
+            all_community_risk_values,
+            run_name,
+            evaluation_subdirectory
+        )
         print("Final plotting complete.")
+        print(f"Results saved to {evaluation_subdirectory}")
 
 
         return total_rewards

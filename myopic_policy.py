@@ -450,7 +450,7 @@ class MyopicPolicy:
 
         ax.set_xlabel('Community Risk')
         ax.set_ylabel('Infected Individuals')
-        ax.set_title(f'Learned Policy Visualization\nRun: {run_name}, Alpha: {levels}')
+        ax.set_title(f'Myopic')
         ax.grid(False)
 
         # Add padding to y-axis and x-axis
@@ -463,10 +463,9 @@ class MyopicPolicy:
         ax.set_yticklabels([f'{int(y)}' for y in ax.get_yticks()])
 
         # Create a custom legend
-        legend_elements = [mpatches.Patch(facecolor=colors[i], label=f'Allow {allowed[i]}%') for i in
+        legend_elements = [mpatches.Patch(facecolor=colors[i], label=f'{allowed[i]}%') for i in
                            range(len(allowed))]
-        fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05), ncol=len(allowed),
-                   fontsize='large')
+        fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.25, 0.5), fontsize='large')
 
         plt.tight_layout()
         plt.subplots_adjust(bottom=0.15, top=0.9)
@@ -673,38 +672,39 @@ class MyopicPolicy:
         # self.plot_safety_analysis_results(x_values, z_values, infection_safety_results,
         #                                   attendance_safety_results, evaluation_subdirectory, run_name, alpha)
 
+    def plot_safety_function(self, x_range, y_range, alpha_values, run_name):
+        """Plot the safety function heatmap for different alpha values with contour lines and larger fonts."""
+        plt.rcParams.update({'font.size': 14})  # Increase the default font size
 
-    def plot_safety_function(self, x_range, y_range, z_value, alpha_values, run_name):
-        """Plot the safety function heatmap for different alpha values including z (time/threshold percentage) with contour lines."""
         for alpha in alpha_values:
             safety_function = np.zeros((len(x_range), len(y_range)))
-
             for i, x in enumerate(x_range):
                 for j, y in enumerate(y_range):
-                    # Calculate the safety function
-                    safety_function[i, j] = (alpha * y) - ((1 - alpha) * x) + z_value
+                    safety_function[i, j] = (alpha * y) - ((1 - alpha) * x)
 
-            # Plotting the heatmap with contour lines
-            plt.figure(figsize=(10, 8))
-
+            plt.figure(figsize=(12, 10))  # Slightly larger figure size
             heatmap = sns.heatmap(safety_function, cmap="coolwarm", cbar=True,
                                   xticklabels=np.round(y_range, 1),
-                                  yticklabels=np.round(x_range, 1))  # Keep y-axis low to high
-            plt.gca().invert_yaxis()  # Ensure y-axis starts from low to high values
+                                  yticklabels=np.round(x_range, 1))
 
-            # Adding contour lines
-            plt.contour(safety_function, levels=[0], colors='blue', linewidths=2, linestyles='--')
+            plt.gca().invert_yaxis()
 
-            plt.xlabel('y (Allowed Students Threshold)')
-            plt.ylabel('x (Infection Threshold)')
-            plt.title(f'Safety Function Analysis Heatmap (alpha={alpha}, z={z_value})')
 
-            # Adding the colorbar label
+            plt.xlabel('y (Allowed Students Threshold)', fontsize=18)
+            plt.ylabel('x (Infection Threshold)', fontsize=18)
+            plt.title(f'(gamma={alpha})', fontsize=24)
+
             colorbar = heatmap.collections[0].colorbar
-            colorbar.set_label('Safety Function Value')
+            colorbar.set_label('Safety Function Value', fontsize=18)
 
-            plt.savefig(os.path.join(self.save_path, f'safety_function_heatmap_alpha_{alpha}_z_{z_value}.png'))
+            # Increase font size for tick labels
+            plt.tick_params(axis='both', which='major', labelsize=14)
+
+            plt.tight_layout()  # Adjust the layout to prevent cutting off labels
+            plt.savefig(os.path.join(self.save_path, f'safety_function_heatmap_alpha_{alpha}.png'), dpi=300)
             plt.close()
+
+        plt.rcParams.update({'font.size': plt.rcParamsDefault['font.size']})  # Reset to default font size
 
     def plot_transition_matrix_using_risk(self, states, next_states, community_risks, run_name, alpha_value):
         """Plot and save the transition probability matrix using the extracted community risk values."""
@@ -868,7 +868,21 @@ class MyopicPolicy:
         plot_filename = os.path.join(self.save_path, f'evaluation_results_{run_name}_{levels}.png')
         plt.savefig(plot_filename)
         plt.close()
+        # Calculate the mean of allowed and infected values
+        mean_allowed = sum(allowed_values) / len(allowed_values)
+        mean_infected = sum(infected_values) / len(infected_values)
+
+        # Save the means to a CSV file
+        csv_file_path = os.path.join(self.save_path, f"evaluation_summary_{run_name}_{levels}.csv")
+        file_exists = os.path.isfile(csv_file_path)
+
+        with open(csv_file_path, 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=['Mean Allowed', 'Mean Infected'])
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow({'Mean Allowed': mean_allowed, 'Mean Infected': mean_infected})
         print(f"Saved evaluation plot to {plot_filename}")
+
 
     def simulate_steady_state(self, num_simulations, num_steps, alpha):
         """
@@ -930,6 +944,22 @@ class MyopicPolicy:
         plt.tight_layout()
         plt.savefig(os.path.join(self.save_path, f'simulated_steady_state_{run_name}_alpha_{alpha}.png'))
         plt.close()
+
+    def save_mean_allowed_infected(self, allowed_means_per_episode, infected_means_per_episode, alpha, run_name, levels):
+        # Flatten the list of lists before computing the sum
+        allowed_means_flat = [item for sublist in allowed_means_per_episode for item in sublist]
+        infected_means_flat = [item for sublist in infected_means_per_episode for item in sublist]
+
+        # Compute the mean values
+        mean_allowed = round(sum(allowed_means_flat) / len(allowed_means_flat))
+        mean_infected = round(sum(infected_means_flat) / len(infected_means_flat))
+
+        # Save the results in a separate CSV file
+        summary_file_path = os.path.join(self.save_path, f'summary_{run_name}_{alpha}_{levels}.csv')
+        with open(summary_file_path, 'w', newline='') as summary_csvfile:
+            summary_writer = csv.DictWriter(summary_csvfile, fieldnames=['mean_allowed', 'mean_infected'])
+            summary_writer.writeheader()
+            summary_writer.writerow({'mean_allowed': mean_allowed, 'mean_infected': mean_infected})
 
     def evaluate(self, run_name, num_episodes=1, alpha=0.5, csv_path=None, x_value=20, y_value=50, z=95,
                  perform_safety_analysis=True, num_simulations=1000, num_steps=1000):
@@ -1040,8 +1070,8 @@ class MyopicPolicy:
         x_values = np.linspace(1, 100, 10)
         y_values = np.linspace(0, 100, 10)
         z_value = 95
-        alpha_values = [0.1,0.2, 0.3, 0.4, 0.5, 0.6]
-        self.plot_safety_function(x_values, y_values, z_value, alpha_values, run_name)
+        alpha_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+        self.plot_safety_function(x_values, y_values, alpha_values, run_name)
         # After the evaluation loop
         self.plot_evaluation_results(infected_values_over_time, allowed_values_over_time, community_risk_values,
                                      run_name, alpha)
@@ -1058,6 +1088,12 @@ class MyopicPolicy:
         )
 
         print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
+        allowed_means_per_episode = [allowed_values_over_time]  # List to store mean allowed values
+        infected_means_per_episode = [infected_values_over_time]  # List to store mean infected values
+
+        # Calculate and save the means
+        self.save_mean_allowed_infected(allowed_means_per_episode, infected_means_per_episode, alpha, run_name,levels)
+
         # After the existing steady-state plot
         # final_states = self.simulate_steady_state(num_simulations, num_steps, alpha)
         # self.plot_simulated_steady_state(final_states, run_name, alpha)
@@ -1093,6 +1129,7 @@ def main(seed=42):
 
     # List of alpha values to iterate over
     alpha_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    # alpha_values = [0.1]
 
     for alpha in alpha_values:
         print(f"Running evaluation for alpha = {alpha}")

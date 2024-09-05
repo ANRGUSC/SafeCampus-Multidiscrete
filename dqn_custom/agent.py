@@ -23,6 +23,7 @@ import csv
 import os
 import time
 from scipy.signal import argrelextrema
+from io import StringIO
 
 epsilon = 1e-10
 SEED = 100
@@ -140,7 +141,7 @@ class DQNCustomAgent:
         logging.basicConfig(filename=log_file_path, level=logging.INFO)
 
         # Initialize wandb
-        wandb.init(project=self.agent_type, name=self.run_name)
+        # wandb.init(project=self.agent_type, name=self.run_name)
         self.env = env
 
         # Initialize the neural network
@@ -174,8 +175,6 @@ class DQNCustomAgent:
         # Initialize the learning rate scheduler
         self.scheduler = StepLR(self.optimizer, step_size=200, gamma=0.9)
         self.learning_rate_decay = self.agent_config['agent']['learning_rate_decay']
-
-        self.softmax_temperature = self.agent_config['agent']['softmax_temperature']
 
         self.state_visit_counts = {}
 
@@ -219,21 +218,6 @@ class DQNCustomAgent:
             return community_risk_df['Risk-Level'].tolist()
         except Exception as e:
             raise ValueError(f"Error reading CSV file: {e}")
-
-    # def select_action(self, state):
-    #     if random.random() < self.exploration_rate:
-    #         return [random.randint(0, self.output_dim - 1) * 50 for _ in range(self.num_courses)]
-    #     else:
-    #         with torch.no_grad():
-    #             state = torch.FloatTensor(state).unsqueeze(0)
-    #             q_values = self.model(state)
-    #             # print(f"Q-values shape in select_action: {q_values.shape}")
-    #             # Repeat Q-values for each course
-    #             q_values = q_values.repeat(1, self.num_courses).view(self.num_courses, -1)
-    #
-    #             actions = q_values.max(1)[1].tolist()
-    #             return [action * 50 for action in actions]
-
     def select_action(self, state):
         if random.random() < self.exploration_rate:
             return [self.scale_action(random.randint(0, self.output_dim - 1), self.output_dim) for _ in
@@ -248,12 +232,6 @@ class DQNCustomAgent:
 
                 # Scale the action
                 scaled_action = self.scale_action(action_index, self.output_dim)
-
-                # Debugging: Print the possible actions (indices) and corresponding Q-values
-                # print(f"Selected action index: {action_index}")
-                # print(f"Q-values: {q_values}")
-                # print(f"Scaled action: {scaled_action}")
-                # print(f"Output dimension: {self.output_dim}")
 
                 return [scaled_action]  # Return as a list to maintain consistency with the exploration case
 
@@ -425,13 +403,14 @@ class DQNCustomAgent:
                 'space_complexity': 0
             }
             writer.writerow(metrics)
-            wandb.log({'cumulative_reward': cumulative_reward})
+            # wandb.log({'cumulative_reward': cumulative_reward})
 
             pbar.update(1)
             pbar.set_description(f"Total Reward: {total_reward:.2f}, Epsilon: {self.exploration_rate:.2f}")
 
         pbar.close()
         csvfile.close()
+        csv_data = open(self.csv_file_path, 'r').read()
 
         # Calculate the means for allowed and infected
         mean_allowed = round(sum(allowed_means_per_episode) / len(allowed_means_per_episode))
@@ -453,8 +432,28 @@ class DQNCustomAgent:
                                 self.results_subdirectory)
         # self.log_all_states_visualizations(self.model, self.run_name, self.max_episodes, alpha,
         #                                    self.results_subdirectory)
+        self.plot_metrics(csv_data)
 
         return self.model
+
+    def plot_metrics(self, csv_data):
+        # Convert the CSV string to a DataFrame using StringIO
+        df = pd.read_csv(StringIO(csv_data))
+
+        # Define metrics to plot
+        metrics = ['cumulative_reward', 'average_reward', 'discounted_reward', 'sample_efficiency', 'policy_entropy',
+                   'space_complexity']
+
+        # Plot each metric separately
+        for metric in metrics:
+            plt.figure(figsize=(10, 6))
+            plt.plot(df['episode'], df[metric])
+            plt.title(metric.replace('_', ' ').title())
+            plt.xlabel('Episode')
+            plt.ylabel('Value')
+            plt.grid(True)
+            plt.tight_layout()
+            plt.savefig(os.path.join(self.results_subdirectory, f'{metric}.png'))
 
 
     def generate_all_states(self):
@@ -1707,6 +1706,19 @@ class DQNCustomAgent:
             plot_filename = os.path.join(self.save_path, f'evaluation_plot_{run_name}.png')
             plt.savefig(plot_filename)
             plt.close()
+            # Calculate the mean of allowed and infected values
+            mean_allowed = sum(allowed_values_over_time) / len(allowed_values_over_time)
+            mean_infected = sum(infected_values_over_time) / len(infected_values_over_time)
+
+            # Save the means to a CSV file
+            csv_file_path = os.path.join(evaluation_subdirectory, f"evaluation_summary_{run_name}.csv")
+            file_exists = os.path.isfile(csv_file_path)
+
+            with open(csv_file_path, 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=['Mean Allowed', 'Mean Infected'])
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow({'Mean Allowed': mean_allowed, 'Mean Infected': mean_infected})
             self.log_all_states_visualizations(self.model, self.run_name, self.max_episodes, alpha,
                                                self.results_subdirectory)
 
