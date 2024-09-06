@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from scipy import linalg
 import random
+from matplotlib.animation import FuncAnimation
+import os
 
 class StochasticStabilitySimulation:
     def __init__(self, N, alpha_m, beta, community_risk_method='uniform', community_risk_file=None, seed=None, max_weeks=52):
@@ -194,8 +196,8 @@ class StochasticStabilitySimulation:
         # plt.show()
 
     def plot_threshold_behavior_alpha_beta(self, method_label):
-        alpha_values = np.linspace(0.001, 0.02, 100)
-        beta_values = np.linspace(0.0001, 0.001, 100)
+        alpha_values = np.linspace(0.0001, 0.01, 100)
+        beta_values = np.linspace(0.0001, 0.01, 100)
 
         alpha_grid, beta_grid = np.meshgrid(alpha_values, beta_values)
 
@@ -208,9 +210,9 @@ class StochasticStabilitySimulation:
         im = plt.contourf(alpha_grid, beta_grid, infected_grid, cmap='coolwarm', levels=100)
         plt.colorbar(im, label='Number of Infected')
 
-        # R0_contour = plt.contour(alpha_grid, beta_grid, infected_grid, levels=[1], colors='red', linestyles='--')
-        # if len(R0_contour.allsegs[0]) > 0:
-        #     plt.clabel(R0_contour, inline=1, fontsize=10, fmt=lambda x: f'R0={x:.1f}')
+        R0_contour = plt.contour(alpha_grid, beta_grid, infected_grid, levels=[1], colors='black', linestyles='--')
+        if len(R0_contour.allsegs[0]) > 0:
+            plt.clabel(R0_contour, inline=1, fontsize=10, fmt=lambda x: f'R0={x:.1f}')
 
         plt.xlabel('Alpha')
         plt.ylabel('Beta')
@@ -266,7 +268,110 @@ class StochasticStabilitySimulation:
         plt.savefig(f'stoch_plots/threshold_behavior_R0_{method_label}.png')
         # plt.show()
 
-    def run_simulation(self):
+    def get_reward(self, alpha: float):
+        # If these attributes are not defined, initialize them based on some logic
+        if not hasattr(self, 'allowed_students_per_course'):
+            self.allowed_students_per_course = [random.randint(50, 100) for _ in range(10)]  # Example list
+
+        if not hasattr(self, 'student_status'):
+            self.student_status = [random.randint(0, 10) for _ in range(10)]  # Example list
+
+        # Sum all allowed students and infected students across all courses
+        total_allowed = sum(self.allowed_students_per_course)
+        total_infected = sum(self.student_status)
+
+        # Calculate the reward using the total values
+        reward = int(alpha * total_allowed - (1 - alpha) * total_infected)
+
+        return reward
+
+    def animate_infection_dynamics(self, infected_values, community_risk_values, total_weeks, alpha, save_as_gif=False):
+        fig, (ax_infection, ax_risk) = plt.subplots(2, 1, figsize=(8, 10))
+
+        # Set up for the infection spread animation
+        ax_infection.set_xlim(-10, 10)
+        ax_infection.set_ylim(-10, 10)
+        ax_infection.set_title("Infection Dynamics Over Time")
+
+        # Draw a box to represent the controlled region
+        box_boundary = plt.Rectangle((-5, -5), 10, 10, edgecolor='green', facecolor='none', lw=2)
+        ax_infection.add_patch(box_boundary)
+
+        # Inside region markers (blue) and outside region markers (red)
+        inside_markers, = ax_infection.plot([], [], 'bo', markersize=5, label="Inside (Controlled)")
+        outside_markers, = ax_infection.plot([], [], 'ro', markersize=5, label="Outside (Community)")
+
+        # Set up for the community risk animation
+        ax_risk.set_xlim(0, total_weeks)
+        ax_risk.set_ylim(0, 1)
+        ax_risk.set_title("Community Risk Over Time")
+        ax_risk.set_xlabel("Weeks")
+        ax_risk.set_ylabel("Risk Level")
+        line, = ax_risk.plot([], [], lw=2, label='Community Risk')
+
+        fig.tight_layout()
+
+        # Initialize the infection markers' positions based on the number of infected individuals at the first time step
+        positions = np.random.uniform(-5, 5, size=(100, 2))  # Start with 100 individuals
+
+        # Infection boundary radius
+        boundary_radius = 5.0
+
+        def init():
+            inside_markers.set_data([], [])
+            outside_markers.set_data([], [])
+            line.set_data([], [])
+            return inside_markers, outside_markers, line
+
+        def update(frame):
+            # Infection model (inside interactions vs community interactions)
+            infection_spread_inside = self.alpha_m * infected_values[frame] / self.max_infected
+            infection_spread_community = self.beta * community_risk_values[frame] * infected_values[
+                frame] ** 2 / self.max_infected
+
+            # Update positions for inside infection spread
+            positions[:, 0] += np.random.uniform(-0.5, 0.5, size=positions[:, 0].shape) * infection_spread_inside
+            positions[:, 1] += np.random.uniform(-0.5, 0.5, size=positions[:, 1].shape) * infection_spread_inside
+
+            # Update positions for community infection spread (outside)
+            positions[:, 0] += np.random.uniform(-0.2, 0.2, size=positions[:, 0].shape) * infection_spread_community
+            positions[:, 1] += np.random.uniform(-0.2, 0.2, size=positions[:, 1].shape) * infection_spread_community
+
+            # Identify individuals inside and outside the boundary
+            distances_from_center = np.linalg.norm(positions, axis=1)
+            inside_indices = distances_from_center <= boundary_radius
+            outside_indices = distances_from_center > boundary_radius
+
+            # Set the data for inside and outside markers
+            inside_markers.set_data(positions[inside_indices, 0], positions[inside_indices, 1])
+            outside_markers.set_data(positions[outside_indices, 0], positions[outside_indices, 1])
+
+            # Update community risk plot
+            line.set_data(np.arange(frame + 1), community_risk_values[:frame + 1])
+
+            # Display alpha value and calculate reward
+            reward = self.get_reward(alpha)
+            ax_infection.text(12, 8, f'Alpha: {alpha}', fontsize=12, color='purple')
+            ax_infection.text(12, 6, f'Reward: {reward}', fontsize=12, color='green')
+
+            # Update the text box showing the number of infected inside and outside
+            ax_infection.text(12, 4, f'Infected Inside: {np.sum(inside_indices)}', fontsize=12, color='blue')
+            ax_infection.text(12, 2, f'Infected Outside: {np.sum(outside_indices)}', fontsize=12, color='red')
+
+            return inside_markers, outside_markers, line
+
+        # Create the animation
+        anim = FuncAnimation(fig, update, frames=total_weeks, init_func=init, blit=False, interval=500)
+
+        # Save the animation as a GIF if specified
+        if save_as_gif:
+            anim.save('infection_dynamics.gif', writer='pillow', fps=2)
+
+        # Show the animation
+        plt.legend(loc='upper right')
+        plt.show()
+
+    def run_simulation(self, alpha):
         P_random, states_random = self.create_transition_matrix(lambda: self.calculate_R0(100))
         stationary_random = self.calculate_stationary_distribution(P_random)
 
@@ -274,12 +379,23 @@ class StochasticStabilitySimulation:
         print("The Markov chain is ergodic." if ergodic else "The Markov chain is not ergodic.")
 
         dfe_probability, ee_probability = self.analyze_stochastic_stability(stationary_random, states_random)
-        self.plot_lyapunov_function_with_context(P_random, states_random, stationary_random, self.community_risk_method)
-        self.plot_stationary_distribution(stationary_random, states_random, self.community_risk_method)
-        # self.plot_transition_matrix_for_policy(P_random, self.community_risk_method, self.alpha, "myopic_policy")
-        self.plot_threshold_behavior_alpha_beta(self.community_risk_method)
-        self.plot_transition_matrix(P_random, self.community_risk_method)
-        self.plot_threshold_behavior_R0(self.community_risk_method)
+        # Simulate infection dynamics over time and community risk values for the animation
+        # Load the community risk values from the CSV file
+        data = pd.read_csv(csv_file_path)
+        community_risk_values = data['Risk-Level'].values[:self.max_weeks]  # Use only required weeks
+
+        infected_values = [np.random.randint(0, self.max_infected) for _ in range(self.max_weeks)]
+
+        # Run the infection dynamics animation using the CSV data
+        self.animate_infection_dynamics(infected_values, community_risk_values, self.max_weeks, alpha, save_as_gif=True)
+
+        # self.plot_lyapunov_function_with_context(P_random, states_random, stationary_random, self.community_risk_method)
+        # self.plot_stationary_distribution(stationary_random, states_random, self.community_risk_method)
+        # # self.plot_transition_matrix_for_policy(P_random, self.community_risk_method, self.alpha, "myopic_policy")
+        # self.plot_threshold_behavior_alpha_beta(self.community_risk_method)
+        # self.plot_transition_matrix(P_random, self.community_risk_method)
+        # self.plot_threshold_behavior_R0(self.community_risk_method)
+
 
         R0 = self.calculate_R0(100)
         max_R0 = np.max(R0)
@@ -294,7 +410,6 @@ class StochasticStabilitySimulation:
             'R0 for max allowed': max_R0,
             'Stochastic Stability': stochastic_stability
         }
-import os
 # Run the simulation for all methods
 methods = ['uniform', 'data', 'sinusoidal']
 results = []
@@ -304,15 +419,16 @@ csv_file_path = os.path.join(root_directory, 'aggregated_weekly_risk_levels.csv'
 
 for method in methods:
     print(f"Running simulation for method: {method}")
+    alpha = 0.8
     sim = StochasticStabilitySimulation(
             N=100,
             alpha_m=0.005,
-            beta=0.01,
+            beta=0.001,
             community_risk_method=method,
             community_risk_file=csv_file_path if method == 'data' else None,
             seed=42
         )
-    result = sim.run_simulation()
+    result = sim.run_simulation(alpha)
     result['Method'] = method
     results.append(result)
 

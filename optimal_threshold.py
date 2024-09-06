@@ -1,85 +1,76 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib.lines import Line2D
 
 # Data for DQN
 dqn_data = {
-    "alpha": [0.2, 0.4, 0.5],
-    "optimal_y": [25.0, 25.0, 50.0],
-    "optimal_x": [13.00, 42.00, 72.00]
+    "alpha": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+    "optimal_y": [0, 25, 25, 25, 50, 100],
+    "optimal_x": [4, 13, 27, 42, 72, 100]
 }
 
 # Data for Q-learning
 q_learning_data = {
-    "alpha": [0.2, 0.4, 0.5],
-    "optimal_y": [25.0, 25.0, 50.0],
-    "optimal_x": [20.00, 47.00, 72.00]
+    "alpha": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+    "optimal_y": [0, 25, 25, 25, 50, 100],
+    "optimal_x": [20, 20, 28, 47, 72, 100]
 }
 
 # Data for Myopic agent
 myopic_data = {
-    "alpha": [0.2, 0.4, 0.5],
-    "optimal_y": [25.0, 25.0, 50.0],
-    "optimal_x": [20.00, 44.82, 68.55]
+    "alpha": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+    "optimal_y": [0, 25, 25, 25.0, 50, 100],
+    "optimal_x": [20, 20, 20, 44.82, 69, 100]
 }
 
-# Colors for each alpha value using a color palette
-alpha_values = dqn_data["alpha"]
-colors = sns.color_palette("husl", len(alpha_values))
+# Colors for each agent
+colors_dqn = sns.color_palette("Blues", len(dqn_data["alpha"]))
+colors_q_learning = sns.color_palette("Greens", len(q_learning_data["alpha"]))
+colors_myopic = sns.color_palette("Reds", len(myopic_data["alpha"]))
 
 plt.figure(figsize=(8, 6))
 
-# Plot DQN data with gray lines
-sns.lineplot(
-    x=dqn_data["optimal_y"], y=dqn_data["optimal_x"],
-    label='DQN', linestyle='-', linewidth=2, color='gray'
-)
-
-# Plot Q-learning data with gray lines
-sns.lineplot(
-    x=q_learning_data["optimal_y"], y=q_learning_data["optimal_x"],
-    label='Q-learning', linestyle='-.', linewidth=2, color='gray'
-)
-
-# Plot myopic data with gray lines
-sns.lineplot(
-    x=myopic_data["optimal_y"], y=myopic_data["optimal_x"],
-    label='Myopic', linestyle='--', linewidth=2, color='gray'
-)
-
-# Add colored markers for each alpha value to differentiate
-for i, alpha in enumerate(alpha_values):
-    # Scatter for DQN
+# Plot DQN data with larger bubble sizes
+for i, alpha in enumerate(dqn_data["alpha"]):
     plt.scatter(
         dqn_data["optimal_y"][i], dqn_data["optimal_x"][i],
-        color=colors[i], s=100, edgecolor='black', label=f'Alpha {alpha}' if i == 0 else ""
+        s=alpha * 800, color=colors_dqn[i], edgecolor='black', label=f'DQN Alpha {alpha}' if i == 0 else ""
     )
-    # Scatter for Q-learning
+    # Add alpha value as text on the right side of the bubble
+    plt.text(dqn_data["optimal_y"][i] + 2, dqn_data["optimal_x"][i], f'{alpha}', fontsize=10, ha='left')
+
+# Plot Q-learning data with larger bubble sizes
+for i, alpha in enumerate(q_learning_data["alpha"]):
     plt.scatter(
         q_learning_data["optimal_y"][i], q_learning_data["optimal_x"][i],
-        color=colors[i], s=100, edgecolor='black'
+        s=alpha * 800, color=colors_q_learning[i], edgecolor='black', label=f'Q-learning Alpha {alpha}' if i == 0 else ""
     )
-    # Scatter for Myopic
+    # Add alpha value as text on the right side of the bubble
+    plt.text(q_learning_data["optimal_y"][i] + 2, q_learning_data["optimal_x"][i], f'{alpha}', fontsize=10, ha='left')
+
+# Plot Myopic data with larger bubble sizes
+for i, alpha in enumerate(myopic_data["alpha"]):
     plt.scatter(
         myopic_data["optimal_y"][i], myopic_data["optimal_x"][i],
-        color=colors[i], s=100, edgecolor='black'
+        s=alpha * 800, color=colors_myopic[i], edgecolor='black', label=f'Myopic Alpha {alpha}' if i == 0 else ""
     )
+    # Add alpha value as text on the right side of the bubble
+    plt.text(myopic_data["optimal_y"][i] + 2, myopic_data["optimal_x"][i], f'{alpha}', fontsize=10, ha='left')
 
-# Adding a custom legend for the alpha values
-legend_elements = [Line2D([0], [0], marker='o', color='w', label=f'Alpha {alpha}',
-                          markerfacecolor=colors[i], markersize=10, markeredgecolor='black') for i, alpha in enumerate(alpha_values)]
-legend_elements += [Line2D([0], [0], color='gray', linestyle='-', label='DQN'),
-                    Line2D([0], [0], color='gray', linestyle='-.', label='Q-learning'),
-                    Line2D([0], [0], color='gray', linestyle='--', label='Myopic')]
+# Adding a legend for agents
+legend_elements = [
+    plt.Line2D([0], [0], marker='o', color='w', label='DQN', markerfacecolor='blue', markersize=10, markeredgecolor='black'),
+    plt.Line2D([0], [0], marker='o', color='w', label='Q-learning', markerfacecolor='green', markersize=10, markeredgecolor='black'),
+    plt.Line2D([0], [0], marker='o', color='w', label='Myopic', markerfacecolor='red', markersize=10, markeredgecolor='black')
+]
 
-plt.legend(handles=legend_elements, title="Legend", loc="upper left")
+plt.legend(handles=legend_elements, loc='upper left')
 
-plt.title('Trade-off Between Optimal X and Y for Different Alpha Values')
+plt.title('Trade-off Between Optimal X and Y for Different Alpha Values (Bubble Size ~ Alpha)')
 plt.xlabel('Optimal Y (Allowed)')
 plt.ylabel('Optimal X (Infected)')
 plt.grid(True)
 
 # Save and show the plot
 plt.tight_layout()
-plt.savefig('tradeoff_optimal_xy_colored_markers.png')
+plt.savefig('tradeoff_optimal_xy_bubble_plot_larger_markers.png')
 plt.show()
