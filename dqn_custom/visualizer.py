@@ -50,11 +50,12 @@ def visualize_all_states(model, all_states, run_name, num_courses, max_episodes,
             state = [0] * course + [y_flat[i]] + [0] * (num_courses - course - 1) + [x_flat[i] * 100]
             adjusted_state = torch.FloatTensor(state).unsqueeze(0)
             with torch.no_grad():
-                q_values = model(adjusted_state)
-                action = q_values[0, course*num_actions:(course+1)*num_actions].argmax().item()
+                policy_logits, _ = model(adjusted_state)  # A2C outputs policy logits
+                action = policy_logits[0, course * num_actions:(course + 1) * num_actions].argmax().item()
             color_values.append(color_map[action])
 
         ax = axes[0, course]
+        # print("x_flat", x_flat, "y_flat", y_flat, "color_values", color_values)
         scatter = ax.scatter(x_flat, y_flat, c=color_values, s=100, marker='s')
         ax.set_xlabel('Community Risk')
         ax.set_ylabel(f'Infected students in Course {course + 1}')
