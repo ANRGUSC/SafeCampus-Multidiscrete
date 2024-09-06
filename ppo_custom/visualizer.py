@@ -1,47 +1,41 @@
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 import seaborn as sns
 import numpy as np
-import wandb
-import scipy.stats as stats
 import pandas as pd
 from tabulate import tabulate
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from itertools import combinations
 import matplotlib.patches as mpatches
 import colorsys
-import ast
-
-# policy matrix
+import torch.nn.functional as F
 
 def generate_distinct_colors(n):
-    HSV_tuples = [(x * 1.0 / n, 0.5, 0.95) for x in range(n)]  # Adjusted the brightness for better distinction
+    HSV_tuples = [(x * 1.0 / n, 0.5, 0.95) for x in range(n)]  # Adjust brightness for better distinction
     RGB_tuples = list(map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples))
     return ['#{:02x}{:02x}{:02x}'.format(int(r * 255), int(g * 255), int(b * 255)) for r, g, b in RGB_tuples]
 
-def visualize_all_states(actor_model, all_states, run_name, num_courses, max_episodes, alpha, results_subdirectory):
+def visualize_all_states(model, all_states, run_name, num_courses, max_episodes, alpha, results_subdirectory, students_per_course):
     method_name = "viz all states"
     file_paths = []
 
     # Determine the number of actions
     with torch.no_grad():
-        sample_state = torch.FloatTensor(all_states[0]).unsqueeze(0)
-        num_actions = actor_model(sample_state).shape[1]
+        sample_state = torch.FloatTensor(all_states[0]).unsqueeze(0)  # Convert state to tensor
+        policy_logits, _ = model(sample_state)  # Get policy logits from A2C model
+        num_actions = policy_logits.shape[1] // num_courses
 
     # Generate distinct colors for each action
     colors = generate_distinct_colors(num_actions)
     color_map = {i: colors[i] for i in range(num_actions)}
 
     fig, axes = plt.subplots(1, num_courses, figsize=(5 * num_courses, 5), squeeze=False)
-    fig.suptitle(f'Actor-Critic-{alpha}', fontsize=16)
+    fig.suptitle(f'A2C-{alpha}', fontsize=16)
 
     for course in range(num_courses):
         x_values = np.linspace(0, 1, 10)  # 10 values for community risk
-        y_values = np.linspace(0, 100, 10)  # 10 values for infected students
+        y_values = np.linspace(0, students_per_course[course], 10)  # 10 values for infected students
         xx, yy = np.meshgrid(x_values, y_values)
         x_flat = xx.flatten()
         y_flat = yy.flatten()
@@ -49,12 +43,14 @@ def visualize_all_states(actor_model, all_states, run_name, num_courses, max_epi
         color_values = []
         for i in range(len(x_flat)):
             state = [0] * course + [y_flat[i]] + [0] * (num_courses - course - 1) + [x_flat[i] * 100]
-            adjusted_state = torch.FloatTensor(state).unsqueeze(0)
+            adjusted_state = torch.FloatTensor(state).unsqueeze(0)  # Convert state to tensor
             with torch.no_grad():
-                action_probs = actor_model(adjusted_state)
-                action = action_probs.argmax().item()
+                policy_logits, _ = model(adjusted_state)  # Get policy logits from A2C model
+                policy_dist = F.softmax(policy_logits[:, course*num_actions:(course+1)*num_actions], dim=-1)
+                action = policy_dist.argmax().item()
             color_values.append(color_map[action])
 
+        # print("x_flat", x_flat, "y_flat", y_flat, "color_values", color_values)
         ax = axes[0, course]
         scatter = ax.scatter(x_flat, y_flat, c=color_values, s=100, marker='s')
         ax.set_xlabel('Community Risk')
@@ -62,12 +58,14 @@ def visualize_all_states(actor_model, all_states, run_name, num_courses, max_epi
         ax.grid(False)
 
         # Add padding to y-axis
-        y_padding = 100 * 0.05  # 5% padding
-        ax.set_ylim(-y_padding, 100 + y_padding)
+        y_padding = students_per_course[course] * 0.05  # 5% padding
+        ax.set_ylim(-y_padding, students_per_course[course] + y_padding)
+
         # Add padding to x-axis
         ax.set_xlim(-0.05, 1.05)
+
         # Set y-ticks to show appropriate scale
-        ax.set_yticks(np.linspace(0, 100, 5))
+        ax.set_yticks(np.linspace(0, students_per_course[course], 5))
         ax.set_yticklabels([f'{int(y)}' for y in ax.get_yticks()])
 
     # Create a custom legend
@@ -76,6 +74,7 @@ def visualize_all_states(actor_model, all_states, run_name, num_courses, max_epi
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.15, top=0.9, wspace=0.3)
+
     file_name = f"{max_episodes}-{method_name}-{run_name}-{alpha}_multi_course.png"
     file_path = f"{results_subdirectory}/{file_name}"
     plt.savefig(file_path, bbox_inches='tight', dpi=300)
@@ -84,6 +83,118 @@ def visualize_all_states(actor_model, all_states, run_name, num_courses, max_epi
 
     return file_paths
 
+
+
+
+
+# def visualize_all_states(model, all_states, run_name, num_courses, max_episodes, alpha, results_subdirectory):
+#     file_paths = []
+#     method_name = "viz all states"
+#
+#     # Create color map
+#     num_actions = 3  # Assuming 3 actions: 0%, 50%, 100%
+#     colors = plt.cm.get_cmap('viridis')(np.linspace(0, 1, num_actions))
+#     c = ListedColormap(colors)
+#
+#     input_dim = model.encoder[0].in_features
+#     marker_size = 300  # Increased marker size
+#
+#     if input_dim == 2:
+#         # If the model only takes 2 inputs, we assume it's [infected, community_risk]
+#         x_values = [state[0] for state in all_states]
+#         y_values = [state[-1] for state in all_states]
+#
+#         actions = {}
+#         for state in all_states:
+#             with torch.no_grad():
+#                 q_values = model(torch.FloatTensor(state[:input_dim]).unsqueeze(0))
+#                 action = q_values.max(1)[1].item()
+#             actions[tuple(state)] = action
+#
+#         print("actions", actions)
+#         colors = [actions[tuple(state)] for state in all_states]
+#
+#         plt.figure(figsize=(12, 10))
+#         scatter = plt.scatter(x_values, y_values, c=colors, s=marker_size, marker='s', alpha=0.7, cmap=c)
+#         plt.title(f"{method_name} - {run_name} (Infected vs Community Risk)")
+#         plt.xlabel("Infected students")
+#         plt.ylabel("Community risk")
+#
+#         legend_labels = ['Allow no one', '50% allowed', 'Allow everyone']
+#         legend_handles = [plt.Line2D([0], [0], marker='s', color='w', markerfacecolor=color, markersize=10) for color in
+#                           c.colors[:3]]
+#         plt.legend(legend_handles, legend_labels, loc='center left', bbox_to_anchor=(1, 0.5), fontsize='x-large')
+#
+#         file_name = f"{max_episodes}-{method_name}-{run_name}-{alpha}-infected_vs_community_risk.png"
+#         file_path = f"{results_subdirectory}/{file_name}"
+#         plt.savefig(file_path, bbox_inches='tight')
+#         plt.close()
+#         file_paths.append(file_path)
+#
+#     else:
+#         # Visualize each course vs community risk
+#         for course in range(num_courses):
+#             actions = {}
+#             for state in all_states:
+#                 adjusted_state = state[:input_dim]  # Truncate state to match model input
+#                 with torch.no_grad():
+#                     q_values = model(torch.FloatTensor(adjusted_state).unsqueeze(0))
+#                     action = q_values.max(1)[1].item()
+#                 actions[tuple(state)] = action
+#
+#             x_values = [state[course] for state in all_states]
+#             y_values = [state[-1] for state in all_states]  # Community risk is last
+#             colors = [actions[tuple(state)] for state in all_states]
+#
+#             plt.figure(figsize=(12, 10))
+#             scatter = plt.scatter(x_values, y_values, c=colors, s=marker_size, marker='s', alpha=0.7, cmap=c)
+#             plt.title(f"{method_name} - {run_name} (Course {course + 1} vs Community Risk)")
+#             plt.xlabel(f"Infected students (Course {course + 1})")
+#             plt.ylabel("Community risk")
+#
+#             legend_labels = ['Allow no one', '50% allowed', 'Allow everyone']
+#             legend_handles = [plt.Line2D([0], [0], marker='s', color='w', markerfacecolor=color, markersize=10) for
+#                               color in c.colors[:3]]
+#             plt.legend(legend_handles, legend_labels, loc='center left', bbox_to_anchor=(1, 0.5), fontsize='x-large')
+#
+#             file_name = f"{max_episodes}-{method_name}-{run_name}-{alpha}-course_{course + 1}_vs_community_risk.png"
+#             file_path = f"{results_subdirectory}/{file_name}"
+#             plt.savefig(file_path, bbox_inches='tight')
+#             plt.close()
+#             file_paths.append(file_path)
+#
+#         # Visualize pairs of courses (optional, might be too many plots for many courses)
+#         for course1, course2 in itertools.combinations(range(num_courses), 2):
+#             actions = {}
+#             for state in all_states:
+#                 adjusted_state = state[:input_dim]  # Truncate state to match model input
+#                 with torch.no_grad():
+#                     q_values = model(torch.FloatTensor(adjusted_state).unsqueeze(0))
+#                     action = q_values.max(1)[1].item()
+#                 actions[tuple(state)] = action
+#
+#             x_values = [state[course1] for state in all_states]
+#             y_values = [state[course2] for state in all_states]
+#             colors = [actions[tuple(state)] for state in all_states]
+#
+#             plt.figure(figsize=(12, 10))
+#             scatter = plt.scatter(x_values, y_values, c=colors, s=marker_size, marker='s', alpha=0.7, cmap=c)
+#             plt.title(f"{method_name} - {run_name} (Course {course1 + 1} vs Course {course2 + 1})")
+#             plt.xlabel(f"Infected students (Course {course1 + 1})")
+#             plt.ylabel(f"Infected students (Course {course2 + 1})")
+#
+#             legend_labels = ['Allow no one', '50% allowed', 'Allow everyone']
+#             legend_handles = [plt.Line2D([0], [0], marker='s', color='w', markerfacecolor=color, markersize=10) for
+#                               color in c.colors[:3]]
+#             plt.legend(legend_handles, legend_labels, loc='center left', bbox_to_anchor=(1, 0.5), fontsize='x-large')
+#
+#             file_name = f"{max_episodes}-{method_name}-{run_name}-{alpha}-course_{course1 + 1}_vs_course_{course2 + 1}.png"
+#             file_path = f"{results_subdirectory}/{file_name}"
+#             plt.savefig(file_path, bbox_inches='tight')
+#             plt.close()
+#             file_paths.append(file_path)
+#
+#     return file_paths
 def visualize_q_table(q_table, results_subdirectory, episode):
     method_name = "viz q table"
     plt.figure(figsize=(10, 10))
