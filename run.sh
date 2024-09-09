@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define the list of alpha values
-alphas=(0.1 0.2 0.3 0.4 0.5 0.6)
-#alphas=(0.3)
+#alphas=(0.1 0.2 0.3 0.4 0.5 0.6)
+alphas=(0.01)
 # Path to the CSV file containing community risk values
 csv_path="aggregated_weekly_risk_levels.csv"
 
@@ -20,7 +20,7 @@ for alpha in "${alphas[@]}"; do
 #  python3 main.py train_and_eval --alpha "$alpha" --agent_type "q_learning" --csv_path "$csv_path" --algorithm "q_learning"
 # Add a delay of 10 seconds after each run
   echo "Pausing for 10 seconds before the next run..."
-  sleep 10
+  sleep 5
 done
 
 echo "All training and evaluation runs completed."

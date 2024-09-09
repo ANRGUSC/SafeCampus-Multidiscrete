@@ -156,7 +156,14 @@ class A2CCustomAgent:
         self.num_courses = self.env.action_space.nvec[0]
 
         self.model = ActorCriticNetwork(self.input_dim, self.hidden_dim, self.output_dim)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.agent_config['agent']['learning_rate'])
+
+        # Separate learning rates for actor (policy) and critic (value)
+        self.actor_lr = self.agent_config['agent']['actor_lr']
+        self.critic_lr = self.agent_config['agent']['critic_lr']
+
+        # Separate optimizers for the actor and critic
+        self.actor_optimizer = optim.Adam(self.model.policy_head.parameters(), lr=self.actor_lr)
+        self.critic_optimizer = optim.Adam(self.model.value_head.parameters(), lr=self.critic_lr)
 
         self.entropy_coeff = self.agent_config['agent']['ent_coef']
         self.value_loss_coeff = self.agent_config['agent']['vf_coef']
@@ -181,7 +188,10 @@ class A2CCustomAgent:
         self.hidden_state = None
         self.reward_window = deque(maxlen=self.moving_average_window)
         # Initialize the learning rate scheduler
-        self.scheduler = StepLR(self.optimizer, step_size=200, gamma=0.9)
+        # Initialize the learning rate scheduler for both optimizers
+        self.actor_scheduler = StepLR(self.actor_optimizer, step_size=200, gamma=0.9)
+        self.critic_scheduler = StepLR(self.critic_optimizer, step_size=200, gamma=0.9)
+
         self.learning_rate_decay = self.agent_config['agent']['learning_rate_decay']
 
         self.softmax_temperature = self.agent_config['agent']['softmax_temperature']
@@ -234,31 +244,30 @@ class A2CCustomAgent:
             state_tensor = torch.FloatTensor(state).unsqueeze(0)
             policy_logits, _ = self.model(state_tensor)
 
-            # Apply softmax with temperature
-            temperature = 1.0
+            # Apply temperature scaling for exploration
+            temperature = max(self.softmax_temperature, 1e-2)  # Prevent too low temperature for numerical stability
             policy_logits = policy_logits / temperature
 
             # Clip logits to prevent extreme values
             policy_logits = torch.clamp(policy_logits, min=-20, max=20)
 
-            # Use log_softmax for numerical stability
-            # log_probs = F.log_softmax(policy_logits, dim=-1)
-            # probs = torch.exp(log_probs)
-
-            # Ensure probabilities sum to 1 and are non-negative
+            # Use softmax for action probabilities
             probs = F.softmax(policy_logits, dim=-1)
 
-            # Add small epsilon to avoid zero probabilities
-            epsilon = 1e-6
+            # Add small epsilon to avoid zero probabilities and renormalize
+            epsilon = 1e-3
             probs = probs + epsilon
             probs = probs / probs.sum()  # Renormalize
 
+            # Handle cases where probabilities are NaN or invalid
             if torch.isnan(probs).any() or torch.isinf(probs).any() or (probs < 0).any():
                 print(f"Warning: Invalid probability distribution: {probs}")
-                action_index = torch.argmax(policy_logits).item()  # Choose the action with highest logit
+                action_index = torch.argmax(policy_logits).item()  # Fallback to the highest logit
             else:
+                # Select action based on softmax probabilities (exploration driven by temperature)
                 action_index = torch.multinomial(probs, 1).item()
 
+            # Scale the action based on the output dimension
             scaled_action = self.scale_action(action_index, self.output_dim)
             return [scaled_action]
 
@@ -373,21 +382,13 @@ class A2CCustomAgent:
             while not done:
                 # Select action (returns scaled action)
                 action = self.select_action(state)
-                # print("action: ", action)
-
-                # Reverse scale action before applying it
-                original_action = self.reverse_scale_action(action, self.output_dim)  # This will map 50 -> 1, etc.
-                # print('original_action: ', original_action)
+                original_action = self.reverse_scale_action(action, self.output_dim)
                 next_state, reward, done, _, info = self.env.step((action, alpha))
                 next_state = np.array(next_state, dtype=np.float32)
 
-                if np.isnan(next_state).any() or np.isinf(next_state).any():
-                    print(f"NaN or Inf detected in next_state: {next_state}")
-                    next_state = np.nan_to_num(next_state, nan=0.0, posinf=1e6, neginf=-1e6)
+                state = np.nan_to_num(state, nan=0.0, posinf=1e6, neginf=-1e6)  # Handle NaN/Inf in state
+                next_state = np.nan_to_num(next_state, nan=0.0, posinf=1e6, neginf=-1e6)
 
-                # Continue with the rest of the code...
-
-                # Continue with the rest of the code
                 policy_logits, value = self.model(torch.FloatTensor(state).unsqueeze(0))
                 policy_dist = F.softmax(policy_logits, dim=-1)
                 log_prob = torch.log(policy_dist.squeeze(0)[original_action])
@@ -399,11 +400,9 @@ class A2CCustomAgent:
                 values.append(value)
                 entropies.append(entropy)
 
-                # Track allowed and infected counts
                 episode_allowed.append(sum(info.get('allowed', [])))  # Sum all courses' allowed students
                 episode_infected.append(sum(info.get('infected', [])))
 
-                # Update state and track visited states
                 state = next_state
                 state_tuple = tuple(state)
                 visited_states.add(state_tuple)
@@ -422,21 +421,32 @@ class A2CCustomAgent:
             returns = torch.FloatTensor(returns)
             values = torch.cat(values).squeeze()
             advantages = returns - values
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
+            # Compute the policy and value loss separately for each step
             for log_prob, value, entropy, advantage, R in zip(log_probs, values, entropies, advantages, returns):
                 policy_loss -= log_prob * advantage.detach()  # Policy loss
-                value_loss += F.mse_loss(value, R)  # Value loss
+                value_loss += F.mse_loss(torch.clamp(value, min=-1e3, max=1e3), R)  # Value loss
                 entropy_loss = -entropy.mean()  # Entropy loss
 
-            # Combine losses
+            # Combine the policy loss and value loss
             total_loss = policy_loss + self.value_loss_coeff * value_loss - self.entropy_coeff * entropy_loss
 
-            # Backpropagation
-            self.optimizer.zero_grad()
-            total_loss.backward()
-            self.optimizer.step()
+            # Backpropagation for actor and critic separately
+            # Actor (policy head) optimization
+            self.actor_optimizer.zero_grad()
+            policy_loss.backward(retain_graph=True)
+            torch.nn.utils.clip_grad_norm_(self.model.policy_head.parameters(), max_norm=0.5)
+            self.actor_optimizer.step()
+
+            # Critic (value head) optimization
+            self.critic_optimizer.zero_grad()
+            value_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.value_head.parameters(), max_norm=0.5)
+            self.critic_optimizer.step()
+
+
             self.exploration_rate = self.decay_handler.get_exploration_rate(episode)
-            # Store episode rewards
             allowed_means_per_episode.append(np.mean(episode_allowed))
             infected_means_per_episode.append(np.mean(episode_infected))
             actual_rewards.append(sum(rewards))
@@ -460,7 +470,7 @@ class A2CCustomAgent:
             writer.writerow(metrics)
 
             pbar.update(1)
-            pbar.set_description(f"Total Reward: {cumulative_reward:.2f}, Epsilon: {self.exploration_rate:.2f}")
+            pbar.set_description(f"Total Reward: {cumulative_reward:.2f}, Epsilon: {self.exploration_rate:.2f}, Loss: {total_loss:.2f}")
 
         pbar.close()
         csvfile.close()
@@ -1627,41 +1637,74 @@ class A2CCustomAgent:
 
                 while not done:
                     with torch.no_grad():
+                        # Convert the current state to a tensor
                         state_tensor = torch.FloatTensor(state).unsqueeze(0)
+
+                        # Forward pass through the model to get the policy logits
                         policy_logits, _ = self.model(state_tensor)
+
+                        # Clip logits to avoid extreme values
+                        policy_logits = torch.clamp(policy_logits, min=-20, max=20)
+
+                        # Softmax to get the action probabilities
                         policy_dist = F.softmax(policy_logits, dim=-1)
-                        action_index = torch.multinomial(policy_dist, 1).item()
+
+                        # Add epsilon to avoid zero probabilities and renormalize
+                        epsilon = 1e-3
+                        policy_dist = policy_dist + epsilon
+                        policy_dist = policy_dist / policy_dist.sum()  # Re-normalize
+
+                        # Check if probabilities are valid (not NaN or Inf)
+                        if torch.isnan(policy_dist).any() or torch.isinf(policy_dist).any() or (policy_dist < 0).any():
+                            print(f"Warning: Invalid probability distribution detected: {policy_dist}")
+                            # Fall back to taking the action with the highest logit if distribution is invalid
+                            action_index = torch.argmax(policy_logits).item()
+                        else:
+                            # Sample an action based on the valid probability distribution
+                            action_index = torch.multinomial(policy_dist, 1).item()
+
+                        # Scale the action to the corresponding environment value
                         scaled_action = self.scale_action(action_index, self.output_dim)
 
+                    # Reverse scaling for recording the action
                     original_action = self.reverse_scale_action(scaled_action, self.output_dim)
+
+                    # Take the environment step using the scaled action and alpha
                     next_state, reward, done, _, info = self.env.step((scaled_action, alpha))
+                    state = np.nan_to_num(state, nan=0.0, posinf=1e6, neginf=-1e6)  # Handle NaN/Inf in state
+                    next_state = np.nan_to_num(next_state, nan=0.0, posinf=1e6, neginf=-1e6)
 
                     print(f"Raw next_state from env.step(): {next_state}")
                     print(f"Raw info from env.step(): {info}")
 
+                    # Convert next_state to a NumPy array
                     next_state = np.array(next_state, dtype=np.float32)
+
+                    # Accumulate total reward
                     total_reward += reward
 
-                    # Try to extract infected value from both state and info
+                    # Extract the infected value from either the next_state or info
                     infected_value_state = next_state[0] if len(next_state) > 0 else None
                     infected_value_info = info.get('infected', None)
-
                     infected_value = infected_value_state if infected_value_state is not None else infected_value_info
+
+                    # Track the allowed value and infection statistics
                     allowed_value = scaled_action
 
+                    # Store the states and other information
                     states.append(state)
                     next_states.append(next_state)
                     community_risks.append(info['community_risk'])
                     infected_values_over_time.append(infected_value)
                     allowed_values_over_time.append(allowed_value)
 
+                    # Write the episode data to the CSV
                     writer.writerow([
                         episode + 1, step + 1, state.tolist(), scaled_action,
                         infected_value, allowed_value, info['community_risk'], reward
                     ])
 
-
-
+                    # Update the state to the next state
                     state = next_state
                     step += 1
 

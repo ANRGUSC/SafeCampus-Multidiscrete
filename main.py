@@ -49,7 +49,7 @@ def safe_wandb_log(metrics):
 def run_training_and_evaluation(env, shared_config_path, alpha, agent_type, algorithm, csv_path):
     try:
         timestamp = datetime.now().strftime("%H%M%S")
-        run_name = f"{agent_type}_{timestamp}_{alpha}_{5}"
+        run_name = f"{agent_type}_{timestamp}_{alpha}_{3}"
 
         print("Starting training phase...")
         env_train, _ = initialize_environment(shared_config_path, read_community_risk_from_csv=False,
@@ -299,7 +299,7 @@ def main():
 
         shared_config = load_config(shared_config_path)
         timestamp = datetime.now().strftime("%H%M%S")
-        run_name = f"{args.agent_type}_{timestamp}_{args.alpha}_{5}"
+        run_name = f"{args.agent_type}_{timestamp}_{args.alpha}_{3}"
         run = safe_wandb_init(project=shared_config['wandb']['project'], entity=shared_config['wandb']['entity'],
                               name=run_name, mode="offline")
 
