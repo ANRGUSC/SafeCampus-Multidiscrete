@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define the list of alpha values
-alphas=(0.1 0.2 0.3 0.4 0.5 0.6)
-#alphas=(0.1)
+#alphas=(0.1 0.2 0.3 0.4 0.5 0.6)
+alphas=(0.1)
 # Path to the CSV file containing community risk values
 csv_path="aggregated_weekly_risk_levels.csv"
 
