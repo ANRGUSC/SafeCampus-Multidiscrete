@@ -77,7 +77,7 @@ class ActorCriticNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_actions):
         super(ActorCriticNetwork, self).__init__()
 
-        num_layers = 12  # Number of hidden layers
+        num_layers = 14  # Number of hidden layers
 
         # Create a list to hold the layers for the encoder
         encoder_layers = []
