@@ -96,6 +96,29 @@ def format_agent_class_name(agent_type):
     formatted_parts = [special_acronyms.get(part, part.capitalize()) for part in parts]
     return ''.join(formatted_parts) + 'Agent'
 
+
+# def run_training(env, shared_config_path, alpha, agent_type, algorithm, run_name):
+#     # Remove the wandb.init() call from here since it's now in run_training_and_evaluation
+#
+#     agent_config_path = os.path.join('config', f'config_{agent_type}.yaml')
+#     agent_config = load_config(agent_config_path)
+#     wandb.config.update(agent_config)
+#     wandb.config.update({'alpha': alpha, 'algorithm': algorithm, 'run_name': run_name})
+#
+#     AgentModule = __import__(f'{agent_type}.agent', fromlist=[f'{format_agent_class_name(agent_type)}'])
+#     AgentClass = getattr(AgentModule, f'{format_agent_class_name(agent_type)}')
+#     agent = AgentClass(env, run_name, shared_config_path=shared_config_path, agent_config_path=agent_config_path)
+#
+#     agent.train(alpha)
+#
+#     filename = str(f'run_names_{agent_type}.txt')
+#     with open(filename, 'a') as file:
+#         file.write(run_name + '\n')
+#
+#     print("Done Training with alpha: ", alpha, "agent_type: ", agent_type, "algorithm: ", algorithm, "run_name: ",
+#           run_name)
+#     return agent
+
 def run_sweep(shared_config_path, agent_type, algorithm):
     # Initialize wandb for this sweep run
     run = wandb.init()

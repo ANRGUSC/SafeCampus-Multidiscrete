@@ -1629,6 +1629,7 @@ class A2CCustomAgent:
                         scaled_action = self.scale_action(action_index, self.output_dim)
 
                     original_action = self.reverse_scale_action(scaled_action, self.output_dim)
+                    print(f"Original Action: {original_action}", f"Scaled Action: {scaled_action}")
                     next_state, reward, done, _, info = self.env.step((scaled_action, alpha))
 
                     print(f"Raw next_state from env.step(): {next_state}")

@@ -95,7 +95,7 @@ class Simulation:
         for i, students in enumerate(self.model.number_of_students_per_course()):
             if isinstance(action[i], (np.ndarray, list)):
                 # If action[i] is an array or list, take the first element
-                action_value = float(action[i][0])
+                action_value = float(action[i])
             else:
                 # If action[i] is already a scalar, use it directly
                 action_value = float(action[i])
@@ -124,15 +124,12 @@ class Simulation:
                 self.community_risk = self.community_risk_values[self.current_time]
 
         self.current_time += 1
-
     def get_reward(self, alpha: float):
         # Sum all allowed students and infected students across all courses
         total_allowed = sum(self.allowed_students_per_course)
         total_infected = sum(self.student_status)
-
         # Calculate the reward using the total values
-        reward = int(alpha * total_allowed - (1 - alpha) * total_infected)
-
+        reward = (alpha * total_allowed - (1 - alpha) * total_infected)
         return reward
 
     def is_episode_done(self):
