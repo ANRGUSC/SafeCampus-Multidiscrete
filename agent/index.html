@@ -74,7 +74,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#creating-a-custom-agent" class="md-skip">
+        <a href="#agent-design-tutorial-step-by-step-process" class="md-skip">
           Skip to content
         </a>
       
@@ -349,18 +349,90 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#steps-to-create-a-custom-agent" class="md-nav__link">
+  <a href="#table-of-contents" class="md-nav__link">
     <span class="md-ellipsis">
-      Steps to Create a Custom Agent
+      Table of Contents
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#training-your-custom-agent" class="md-nav__link">
+  <a href="#1-choose-agent-type-and-naming" class="md-nav__link">
     <span class="md-ellipsis">
-      Training Your Custom Agent
+      1. Choose Agent Type and Naming
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-create-configuration-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Create Configuration File
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-design-network-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Design Network Architecture
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-implement-agent-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Implement Agent Class
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-develop-action-selection-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Develop Action Selection Process
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-implement-training-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Implement Training Loop
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-add-model-saving-and-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Add Model Saving and Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-create-evaluation-method" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Create Evaluation Method
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-develop-visualization-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Develop Visualization Tools
     </span>
   </a>
   
@@ -401,18 +473,90 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#steps-to-create-a-custom-agent" class="md-nav__link">
+  <a href="#table-of-contents" class="md-nav__link">
     <span class="md-ellipsis">
-      Steps to Create a Custom Agent
+      Table of Contents
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#training-your-custom-agent" class="md-nav__link">
+  <a href="#1-choose-agent-type-and-naming" class="md-nav__link">
     <span class="md-ellipsis">
-      Training Your Custom Agent
+      1. Choose Agent Type and Naming
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-create-configuration-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Create Configuration File
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-design-network-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Design Network Architecture
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-implement-agent-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Implement Agent Class
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-develop-action-selection-process" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Develop Action Selection Process
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-implement-training-loop" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Implement Training Loop
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-add-model-saving-and-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Add Model Saving and Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-create-evaluation-method" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Create Evaluation Method
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-develop-visualization-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Develop Visualization Tools
     </span>
   </a>
   
@@ -433,82 +577,95 @@
                   
 
 
-<h1 id="creating-a-custom-agent">Creating a Custom Agent<a class="headerlink" href="#creating-a-custom-agent" title="Permanent link">&para;</a></h1>
-<p>This guide explains how to create and train a custom agent using our reinforcement learning tool. We'll use the default DQN agent as a template to create a new agent.</p>
-<h2 id="steps-to-create-a-custom-agent">Steps to Create a Custom Agent<a class="headerlink" href="#steps-to-create-a-custom-agent" title="Permanent link">&para;</a></h2>
+<h1 id="agent-design-tutorial-step-by-step-process">Agent Design Tutorial: Step-by-Step Process<a class="headerlink" href="#agent-design-tutorial-step-by-step-process" title="Permanent link">&para;</a></h1>
+<p>This tutorial provides a logical, step-by-step guide on how to design and implement a new agent for your reinforcement learning environment. Follow these steps to create your custom agent efficiently.</p>
+<h2 id="table-of-contents">Table of Contents<a class="headerlink" href="#table-of-contents" title="Permanent link">&para;</a></h2>
 <ol>
-<li>
-<p><strong>Choose a Base Agent</strong>: Start with the default DQN agent as your template.</p>
-</li>
-<li>
-<p><strong>Create New Files</strong>:</p>
-</li>
-<li>Create a new Python file for your agent, e.g., <code>ppo_custom_agent.py</code>.</li>
-<li>
-<p>Create a new configuration file, e.g., <code>ppo_custom_config.yaml</code>.</p>
-</li>
-<li>
-<p><strong>Update Neural Network Architecture</strong>:</p>
-</li>
-<li>In your new agent file, define the new neural network architecture.</li>
-<li>
-<p>For example, if creating a PPO agent, define separate Actor and Critic networks.</p>
-</li>
-<li>
-<p><strong>Update Agent Class</strong>:</p>
-</li>
-<li>Rename the agent class, e.g., <code>class PPOCustomAgent(DQNCustomAgent):</code>.</li>
-<li>
-<p>Update the <code>__init__</code> method to initialize new components (e.g., Actor and Critic networks, optimizers).</p>
-</li>
-<li>
-<p><strong>Update Training Loop</strong>:</p>
-</li>
-<li>Modify the <code>train</code> method to implement your custom training algorithm.</li>
-<li>
-<p>Update the main training loop in the <code>while not done:</code> block.</p>
-</li>
-<li>
-<p><strong>Create Configuration File</strong>:</p>
-</li>
-<li>Create a new YAML configuration file for your custom agent.</li>
-<li>
-<p>Include all necessary hyperparameters for your algorithm.</p>
-</li>
-<li>
-<p><strong>Update Initialization</strong>:</p>
-</li>
-<li>In the agent's <code>__init__</code> method, load and use the new configuration file.</li>
-<li>
-<p>Initialize any new attributes or components specific to your agent.</p>
-</li>
-<li>
-<p><strong>Update Model Saving and Loading</strong>:</p>
-</li>
-<li>
-<p>Modify <code>save_model</code> and <code>load_model</code> methods to handle your custom model structure.</p>
-</li>
-<li>
-<p><strong>Update Evaluation Methods</strong>:</p>
-</li>
-<li>
-<p>In the <code>evaluate</code> method, update any parts that use the model for action selection or value estimation.</p>
-</li>
-<li>
-<p><strong>Update Visualization Methods</strong>:</p>
+<li><a href="#1-choose-agent-type-and-naming">Choose Agent Type and Naming</a></li>
+<li><a href="#2-create-configuration-file">Create Configuration File</a></li>
+<li><a href="#3-design-network-architecture">Design Network Architecture</a></li>
+<li><a href="#4-implement-agent-class">Implement Agent Class</a></li>
+<li><a href="#5-develop-action-selection-process">Develop Action Selection Process</a></li>
+<li><a href="#6-implement-training-loop">Implement Training Loop</a></li>
+<li><a href="#7-add-model-saving-and-loading">Add Model Saving and Loading</a></li>
+<li><a href="#8-create-evaluation-method">Create Evaluation Method</a></li>
+<li><a href="#9-develop-visualization-tools">Develop Visualization Tools</a></li>
+</ol>
+<h2 id="1-choose-agent-type-and-naming">1. Choose Agent Type and Naming<a class="headerlink" href="#1-choose-agent-type-and-naming" title="Permanent link">&para;</a></h2>
+<p>Start by deciding on the type of agent you want to create (e.g., DQN, PPO, A2C) and choose appropriate names:</p>
 <ul>
-<li>Modify methods like <code>visualize_all_states</code> to work with your new model structure.</li>
+<li>Root identifier: <code>&lt;agent&gt;_custom</code> (e.g., <code>dqn_custom</code>, <code>ppo_custom</code>)</li>
+<li>Class name: <code>&lt;Agent&gt;CustomAgent</code> (e.g., <code>DQNCustomAgent</code>, <code>PPOCustomAgent</code>)</li>
 </ul>
-</li>
-</ol>
-<h2 id="training-your-custom-agent">Training Your Custom Agent<a class="headerlink" href="#training-your-custom-agent" title="Permanent link">&para;</a></h2>
-<p>To train your custom agent:</p>
-<ol>
-<li>Update the main training script to use your new agent class.</li>
-<li>Ensure all necessary configuration files are in place.</li>
-<li>Run the training script with appropriate parameters for your custom agent.</li>
-</ol>
-<p>Remember to thoroughly test your custom agent and compare its performance with baseline agents to ensure it's working as expected.</p>
+<p>Replace <code>&lt;agent&gt;</code> and <code>&lt;Agent&gt;</code> with your chosen agent type.</p>
+<h2 id="2-create-configuration-file">2. Create Configuration File<a class="headerlink" href="#2-create-configuration-file" title="Permanent link">&para;</a></h2>
+<p>Create a YAML configuration file (e.g., <code>dqn_custom_config.yaml</code>) to store all hyperparameters and settings:</p>
+<ul>
+<li>Network architecture details</li>
+<li>Learning parameters</li>
+<li>Training settings</li>
+<li>Environment-specific parameters</li>
+</ul>
+<p>This file will make it easier to experiment with different settings and reproduce results.</p>
+<h2 id="3-design-network-architecture">3. Design Network Architecture<a class="headerlink" href="#3-design-network-architecture" title="Permanent link">&para;</a></h2>
+<p>Outline your neural network architecture:</p>
+<ul>
+<li>Determine input and output dimensions based on your environment</li>
+<li>Decide on the number and size of hidden layers</li>
+<li>Choose appropriate activation functions</li>
+</ul>
+<p>Consider the complexity of your environment when designing the network.</p>
+<h2 id="4-implement-agent-class">4. Implement Agent Class<a class="headerlink" href="#4-implement-agent-class" title="Permanent link">&para;</a></h2>
+<p>Create your agent class (e.g., <code>DQNCustomAgent</code>):</p>
+<ul>
+<li>Initialize the neural network(s)</li>
+<li>Set up the optimizer</li>
+<li>Initialize any necessary memory buffers or data structures</li>
+<li>Load hyperparameters from the configuration file</li>
+</ul>
+<p>This class will serve as the core of your agent implementation.</p>
+<h2 id="5-develop-action-selection-process">5. Develop Action Selection Process<a class="headerlink" href="#5-develop-action-selection-process" title="Permanent link">&para;</a></h2>
+<p>Implement the action selection method:</p>
+<ul>
+<li>Convert environment state to network input</li>
+<li>Pass the state through your network</li>
+<li>Implement an exploration strategy (e.g., epsilon-greedy)</li>
+</ul>
+<p>Balance exploration and exploitation, especially early in training.</p>
+<h2 id="6-implement-training-loop">6. Implement Training Loop<a class="headerlink" href="#6-implement-training-loop" title="Permanent link">&para;</a></h2>
+<p>Create the main training loop:</p>
+<ul>
+<li>Initialize the environment</li>
+<li>Iterate through episodes</li>
+<li>Select actions and interact with the environment</li>
+<li>Store experiences (if using experience replay)</li>
+<li>Perform learning updates</li>
+</ul>
+<p>This is where your agent will learn from its interactions with the environment.</p>
+<h2 id="7-add-model-saving-and-loading">7. Add Model Saving and Loading<a class="headerlink" href="#7-add-model-saving-and-loading" title="Permanent link">&para;</a></h2>
+<p>Implement functions to:</p>
+<ul>
+<li>Save the trained model and its state</li>
+<li>Load a previously saved model</li>
+</ul>
+<p>This allows for interrupting and resuming training, and using trained models for evaluation.</p>
+<h2 id="8-create-evaluation-method">8. Create Evaluation Method<a class="headerlink" href="#8-create-evaluation-method" title="Permanent link">&para;</a></h2>
+<p>Develop a method to evaluate your agent's performance:</p>
+<ul>
+<li>Load a trained model</li>
+<li>Run the agent through test episodes without training</li>
+<li>Collect and analyze performance metrics</li>
+</ul>
+<p>This helps in assessing how well your agent has learned.</p>
+<h2 id="9-develop-visualization-tools">9. Develop Visualization Tools<a class="headerlink" href="#9-develop-visualization-tools" title="Permanent link">&para;</a></h2>
+<p>Create tools to visualize your agent's performance and behavior:</p>
+<ul>
+<li>Plot learning curves (e.g., rewards over time, loss values)</li>
+<li>Visualize the agent's behavior in the environment</li>
+<li>Create policy heatmaps or other relevant visualizations</li>
+</ul>
+<p>Good visualizations can provide insights into your agent's learning process and aid in debugging.</p>
+<p>By following this step-by-step process, you can design and implement your custom agent in a structured and organized manner. Remember to iterate on your design, test thoroughly, and adapt each step to the specific needs of your agent and environment.</p>
 
 
 
