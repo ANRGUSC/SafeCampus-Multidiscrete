@@ -6,7 +6,7 @@ agent:
   exploration_rate: 1.0
   min_exploration_rate: 0.01
   exploration_decay_rate: 0.995
-  learning_rate: 0.00001
+  learning_rate: 0.001
   learning_rate_decay: 0.999
   min_learning_rate: 0.0001
   softmax_temperature: 0.1
@@ -15,7 +15,7 @@ agent:
 
   # PPO-specific parameters
   clip_range: 0.01
-  value_coefficient: 0.3
-  entropy_coefficient: 0.01
+  value_coefficient: 0.05
+  entropy_coefficient: 0.8
   max_grad_norm: 0.5
 

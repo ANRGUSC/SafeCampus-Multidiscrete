@@ -79,7 +79,7 @@ class PPOPolicyNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_actions):
         super(PPOPolicyNetwork, self).__init__()
 
-        num_layers = 5  # Number of hidden layers
+        num_layers = 18  # Number of hidden layers
 
         # Create a list to hold the layers for the encoder
         encoder_layers = []
@@ -232,10 +232,24 @@ class PPOCustomAgent:
 
     def select_action(self, state):
         state_tensor = torch.FloatTensor(state).unsqueeze(0)
+
+        # Get policy logits from the model
         policy_logits, _ = self.model(state_tensor)
-        policy_dist = Categorical(logits=policy_logits)
+
+        # Option 1: Temperature Scaling for Exploration
+        temperature = self.softmax_temperature  # Add a temperature parameter in your config
+        scaled_logits = policy_logits / temperature  # Scale logits by temperature
+
+        # Create a categorical distribution from the scaled logits
+        policy_dist = Categorical(logits=scaled_logits)
+
+        # Sample an action (introducing more exploration with temperature scaling)
         action = policy_dist.sample().item()
+
+        # Scale the action to the allowed values
         scaled_action = self.scale_action(action, self.output_dim)
+
+        # Return the selected action and log probability
         return scaled_action, policy_dist.log_prob(torch.tensor(action))
 
     def compute_returns(self, rewards, next_value, dones):
@@ -413,6 +427,7 @@ class PPOCustomAgent:
             # Backpropagation
             self.optimizer.zero_grad()
             total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.5)
             self.optimizer.step()
 
             # Logging and updating exploration rate
@@ -939,7 +954,7 @@ class PPOCustomAgent:
                 continue
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
             optimizer.step()
 
             loss_values.append(loss.item())
