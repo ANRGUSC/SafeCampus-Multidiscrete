@@ -77,7 +77,7 @@ class ActorCriticNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_actions):
         super(ActorCriticNetwork, self).__init__()
 
-        num_layers = 5  # Number of hidden layers
+        num_layers = 12  # Number of hidden layers
 
         # Create a list to hold the layers for the encoder
         encoder_layers = []
@@ -235,18 +235,12 @@ class A2CCustomAgent:
             policy_logits, _ = self.model(state_tensor)
 
             # Apply softmax with temperature
-            temperature = 1.0
+            temperature = 0.3
             policy_logits = policy_logits / temperature
 
-            # Clip logits to prevent extreme values
-            policy_logits = torch.clamp(policy_logits, min=-20, max=20)
-
-            # Use log_softmax for numerical stability
-            # log_probs = F.log_softmax(policy_logits, dim=-1)
-            # probs = torch.exp(log_probs)
-
             # Ensure probabilities sum to 1 and are non-negative
-            probs = F.softmax(policy_logits, dim=-1)
+            logits_max = policy_logits.max(dim=-1, keepdim=True).values
+            probs = F.softmax(policy_logits - logits_max, dim=-1)
 
             # Add small epsilon to avoid zero probabilities
             epsilon = 1e-6
@@ -422,6 +416,7 @@ class A2CCustomAgent:
             returns = torch.FloatTensor(returns)
             values = torch.cat(values).squeeze()
             advantages = returns - values
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
             for log_prob, value, entropy, advantage, R in zip(log_probs, values, entropies, advantages, returns):
                 policy_loss -= log_prob * advantage.detach()  # Policy loss
