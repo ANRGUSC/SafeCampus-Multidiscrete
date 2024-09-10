@@ -69,13 +69,14 @@ python main.py train --agent_type q_learning --alpha 0.8 --algorithm q_learning
 ```
 
 2. Evaluation:
+The CSV file to use is in the root directory of the projects. This is the 'aggregated_weekly_risk_levels.csv'
 ```bash
-python main.py eval --agent_type q_learning --alpha 0.8 --run_name your_run_name --csv_path path/to/your/csv --algorithm q_learning
+python main.py eval --agent_type q_learning --alpha 0.8 --run_name your_run_name --csv_path aggregated_weekly_risk_levels.csv --algorithm q_learning
 ```
 
 3. Combined Training and Evaluation:
 ```bash
-python main.py train_and_eval --agent_type q_learning --alpha 0.8 --csv_path path/to/your/csv --algorithm q_learning
+python main.py train_and_eval --agent_type q_learning --alpha 0.8 --csv_path aggregated_weekly_risk_levels.csv --algorithm q_learning
 ```
 
 4. Hyperparameter Sweep:
