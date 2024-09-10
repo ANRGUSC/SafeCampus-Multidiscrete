@@ -245,6 +245,7 @@ class QLearningAgent:
     def log_all_states_visualizations(self, q_table, all_states, states, run_name, max_episodes, alpha, results_subdirectory):
         file_paths = visualize_all_states(q_table, all_states, states, run_name, max_episodes, alpha,
                                           results_subdirectory, self.env.students_per_course)
+        return file_paths
 
         # Log all generated visualizations
         # wandb_images = [wandb.Image(path) for path in file_paths]
@@ -1118,6 +1119,7 @@ class QLearningAgent:
             print(f"Error saving evaluation results plot: {e}")
         finally:
             plt.close()
+        return plot_path
 
     def evaluate_lyapunov(self, V, eval_states, alpha):
         with torch.no_grad():
@@ -1316,6 +1318,7 @@ class QLearningAgent:
         all_allowed_values = []
         all_infected_values = []
         all_community_risk_values = []
+        plot_paths = []
         print("Starting evaluation...")
 
         with open(csv_file_path, mode='w', newline='') as file:
@@ -1466,6 +1469,7 @@ class QLearningAgent:
         # Call the plotting function with all accumulated data
         # final_states = self.simulate_steady_state(alpha=alpha)
         # self.plot_simulated_steady_state(final_states, run_name, alpha)
+
         # Plotting
         x = np.arange(len(infected_values_over_time))
         fig, ax1 = plt.subplots(figsize=(12, 8))
@@ -1491,23 +1495,28 @@ class QLearningAgent:
 
         # Save the plot
         plot_filename = os.path.join(evaluation_subdirectory, f'evaluation_plot_{run_name}.png')
+        plot_paths.append(plot_filename)
         plt.savefig(plot_filename)
         plt.close()
-        self.log_all_states_visualizations(self.q_table, self.all_states, self.states, self.run_name,
+        viz_path = self.log_all_states_visualizations(self.q_table, self.all_states, self.states, self.run_name,
                                            self.max_episodes,
                                            alpha, self.results_subdirectory)
-        self.plot_evaluation_results(
+        plot_paths.append(viz_path[0])
+        eval_path = self.plot_evaluation_results(
             all_allowed_values,
             all_infected_values,
             all_community_risk_values,
             run_name,
             evaluation_subdirectory
         )
+        plot_paths.append(eval_path)
         print("Final plotting complete.")
         print(f"Results saved to {evaluation_subdirectory}")
+        print('plot paths:', plot_paths)
 
+        print(allowed_values_over_time, infected_values_over_time, community_risk_values)
 
-        return total_rewards
+        return total_rewards, allowed_values_over_time, infected_values_over_time, community_risk_values
 
     def moving_average(self, data, window_size):
         return np.convolve(data, np.ones(window_size) / window_size, mode='valid')

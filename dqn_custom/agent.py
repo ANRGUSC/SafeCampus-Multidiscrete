@@ -76,7 +76,7 @@ class LyapunovNet(nn.Module):
 class DeepQNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim, out_dim):
         super(DeepQNetwork, self).__init__()
-        num_layers = 5  # Number of hidden layers
+        num_layers = 8  # Number of hidden layers
         # Create a list to hold the layers
         layers = []
 
@@ -176,8 +176,6 @@ class DQNCustomAgent:
         self.scheduler = StepLR(self.optimizer, step_size=200, gamma=0.9)
         self.learning_rate_decay = self.agent_config['agent']['learning_rate_decay']
 
-        self.softmax_temperature = self.agent_config['agent']['softmax_temperature']
-
         self.state_visit_counts = {}
 
         self.decay_handler = ExplorationRateDecay(self.max_episodes, self.min_exploration_rate, self.exploration_rate)
@@ -220,22 +218,44 @@ class DQNCustomAgent:
             return community_risk_df['Risk-Level'].tolist()
         except Exception as e:
             raise ValueError(f"Error reading CSV file: {e}")
+    # def select_action(self, state):
+    #     if random.random() < self.exploration_rate:
+    #         return [self.scale_action(random.randint(0, self.output_dim - 1), self.output_dim) for _ in
+    #                 range(self.num_courses)]
+    #     else:
+    #         with torch.no_grad():
+    #             state = torch.FloatTensor(state).unsqueeze(0)
+    #             q_values = self.model(state)
+    #
+    #             # Get the index of the highest Q-value
+    #             action_index = q_values.argmax(dim=1).item()
+    #
+    #             # Scale the action
+    #             scaled_action = self.scale_action(action_index, self.output_dim)
+    #
+    #             return [scaled_action]  # Return as a list to maintain consistency with the exploration case
+
     def select_action(self, state):
         if random.random() < self.exploration_rate:
-            return [self.scale_action(random.randint(0, self.output_dim - 1), self.output_dim) for _ in
-                    range(self.num_courses)]
+            # Exploration: uniform random selection over all possible actions
+            return [self.scale_action(random.randint(0, self.output_dim - 1), self.output_dim)
+                    for _ in range(self.num_courses)]
         else:
+            # Exploitation: choose from top actions based on Q-values
             with torch.no_grad():
                 state = torch.FloatTensor(state).unsqueeze(0)
                 q_values = self.model(state)
 
-                # Get the index of the highest Q-value
-                action_index = q_values.argmax(dim=1).item()
+                # Get top-k actions
+                top_k = min(3, self.output_dim)
+                top_actions = q_values.topk(top_k, dim=1)[1].squeeze().tolist()
 
-                # Scale the action
-                scaled_action = self.scale_action(action_index, self.output_dim)
+                # Weighted random choice based on Q-values
+                top_q_values = q_values[0, top_actions].softmax(dim=0).numpy()
+                chosen_action = random.choices(top_actions, weights=top_q_values, k=1)[0]
+                scaled_action = self.scale_action(chosen_action, self.output_dim)
 
-                return [scaled_action]  # Return as a list to maintain consistency with the exploration case
+                return [scaled_action]
 
     def calculate_convergence_rate(self, episode_rewards):
         # Simple example: Convergence rate is the change in reward over the last few episodes
@@ -1708,6 +1728,19 @@ class DQNCustomAgent:
             plot_filename = os.path.join(self.save_path, f'evaluation_plot_{run_name}.png')
             plt.savefig(plot_filename)
             plt.close()
+            # Calculate the mean of allowed and infected values
+            mean_allowed = sum(allowed_values_over_time) / len(allowed_values_over_time)
+            mean_infected = sum(infected_values_over_time) / len(infected_values_over_time)
+
+            # Save the means to a CSV file
+            csv_file_path = os.path.join(evaluation_subdirectory, f"evaluation_summary_{run_name}.csv")
+            file_exists = os.path.isfile(csv_file_path)
+
+            with open(csv_file_path, 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=['Mean Allowed', 'Mean Infected'])
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow({'Mean Allowed': mean_allowed, 'Mean Infected': mean_infected})
             self.log_all_states_visualizations(self.model, self.run_name, self.max_episodes, alpha,
                                                self.results_subdirectory)
 

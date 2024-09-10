@@ -66,9 +66,8 @@ def visualize_all_states(q_table, all_states, states, run_name, max_episodes, al
         ax.set_xlim(-0.05, 1.05)
 
     # Create a custom legend with arbitrary colors
-    legend_elements = [mpatches.Patch(facecolor=colors[i], label=f'Allow {i * (100 // (unique_actions - 1))}%') for i in range(unique_actions)]
-    fig.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5, -0.05),
-               ncol=unique_actions, fontsize='large')
+    legend_elements = [mpatches.Patch(facecolor=colors[i], label=f' {i * (100 // (unique_actions - 1))}%') for i in range(unique_actions)]
+    fig.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.25, 0.5), fontsize='large')
 
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.15, top=0.9, wspace=0.3)
