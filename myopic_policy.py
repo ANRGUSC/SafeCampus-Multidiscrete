@@ -62,6 +62,101 @@ class MyopicPolicy:
         self.save_path = "myopic_exp_results"
         os.makedirs(self.save_path, exist_ok=True)
 
+    def reinforcement_learning(self, run_name, num_episodes=100, alpha=0.5, csv_path=None):
+        """
+        Perform reinforcement learning using the myopic policy and generate relevant logs and plots.
+        """
+        save_dir = "reinforcement_learning_myopic"
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"{run_name}_reinforcement_learning_rl.csv")
+
+        if csv_path:
+            community_risk_values = pd.read_csv(csv_path)['Risk-Level'].values
+            num_weeks = len(community_risk_values)
+        else:
+            num_weeks = 52
+            rng = np.random.default_rng(SEED)
+            community_risk_values = rng.uniform(0, 1, num_weeks)
+
+        total_rewards = []
+        allowed_values_over_time = []
+        infected_values_over_time = [20]  # Initial infection count
+
+        # Create a CSV to log all episodes
+        with open(save_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Episode', 'Step', 'State', 'Action', 'Community Risk', 'Total Reward'])
+
+            for episode in range(num_episodes):
+                current_infected = torch.tensor([20.0], dtype=torch.float32)
+                total_reward = 0
+
+                for step in range(num_weeks):
+                    community_risk = torch.tensor([community_risk_values[step]], dtype=torch.float32)
+                    label, allowed_value, new_infected, reward, _, _ = self.get_label(current_infected, community_risk, alpha)
+
+                    total_reward += reward.item()
+                    writer.writerow([episode + 1, step + 1, current_infected.item(), allowed_value.item(), community_risk.item(), reward.item()])
+
+                    if episode == 0:
+                        allowed_values_over_time.append(allowed_value.item())
+                        infected_values_over_time.append(new_infected.item())
+
+                    current_infected = new_infected
+
+                total_rewards.append(total_reward)
+                print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+
+        avg_reward = np.mean(total_rewards)
+        print(f"Average Reward over {num_episodes} episodes: {avg_reward}")
+
+        # Generate and save all the evaluation logs and plots using the RL policy
+        self._generate_rl_policy_logs_and_plots(allowed_values_over_time, infected_values_over_time, community_risk_values, run_name, alpha, save_dir)
+
+        return avg_reward
+
+    def _generate_rl_policy_logs_and_plots(self, allowed_values_over_time, infected_values_over_time, community_risk_values, run_name, alpha, save_dir):
+        """
+        Generate logs and plots based on the policy derived from reinforcement learning. Saves with filenames including 'rl'.
+        """
+        # Ensure all arrays have the same length
+        min_length = min(len(infected_values_over_time), len(allowed_values_over_time), len(community_risk_values))
+        infected_values_over_time = infected_values_over_time[:min_length]
+        allowed_values_over_time = allowed_values_over_time[:min_length]
+        community_risk_values = community_risk_values[:min_length]
+
+        # Visualize all states using the policy from RL
+        self.visualize_policy(run_name + '_rl', alpha)
+
+        # Plot evaluation results
+        self.plot_evaluation_results(infected_values_over_time, allowed_values_over_time, community_risk_values, run_name + '_rl', alpha)
+
+        # Find the optimal policy based on the RL results
+        optimal_x, optimal_y = self.find_optimal_xy(infected_values_over_time, allowed_values_over_time, community_risk_values, z=95, run_name=run_name + '_rl', evaluation_subdirectory=save_dir, alpha=alpha)
+        print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
+        # Construct CBFs
+        B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time, optimal_x, optimal_y)
+
+        # Verify forward invariance
+        is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time, infected_values_over_time)
+
+        # Generate and plot Lyapunov function
+        features = list(zip(allowed_values_over_time, infected_values_over_time, community_risk_values))
+        V, loss_values = self.construct_lyapunov_function(features, alpha)
+        self.plot_loss_function(loss_values, alpha, run_name + '_rl')
+        self.plot_steady_state_and_stable_points(V, features, run_name + '_rl', alpha)
+        self.plot_lyapunov_properties(V, features, run_name + '_rl', alpha)
+
+        # Generate and plot equilibrium points
+        self.plot_equilibrium_points(features, run_name + '_rl', alpha)
+
+        # Simulate and plot steady-state distribution
+        final_states = self.simulate_steady_state(num_simulations=1000, num_steps=100, alpha=alpha)
+        self.plot_simulated_steady_state(final_states, run_name + '_rl', alpha)
+
+        # Save summary of rewards and other statistics
+        self.save_mean_allowed_infected([allowed_values_over_time], [infected_values_over_time], alpha, run_name + '_rl', levels=5)
+
     def estimate_infected_students(self, current_infected, allowed_per_course, community_risk):
         alpha_m = 0.005
         beta = 0.01
@@ -222,11 +317,11 @@ class MyopicPolicy:
         return torch.tensor(np.column_stack((infected, risk)), dtype=torch.float32)
 
     def construct_lyapunov_function(self, features, alpha):
-        model = LyapunovNet(input_dim=2, hidden_dim=64, output_dim=1)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+        model = LyapunovNet(input_dim=2, hidden_dim=16, output_dim=1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
         loss_values = []
         epochs = 1000
-        epsilon = 1e-6
+        epsilon = 1e-8
 
         train_states = self.generate_diverse_states(100)
 
@@ -1040,20 +1135,20 @@ class MyopicPolicy:
         is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time, infected_values_over_time)
 
         # Construct Lyapunov function
-        # features = list(zip(allowed_values_over_time, infected_values_over_time, community_risk_values))
-        # V, loss_values = self.construct_lyapunov_function(features, alpha)
-        #
-        # # Plot the Lyapunov loss function
-        # self.plot_loss_function(loss_values, alpha, run_name)
-        #
-        # # Verify Lyapunov stability
-        # self.verify_lyapunov_stability(V, features, alpha)
-        #
-        # # Plot Lyapunov-related graphs
-        # self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
-        # self.plot_lyapunov_change(V, features, run_name, alpha)
-        # self.plot_lyapunov_properties(V, features, run_name, alpha)
-        # self.plot_equilibrium_points(features, run_name, alpha)
+        features = list(zip(allowed_values_over_time, infected_values_over_time, community_risk_values))
+        V, loss_values = self.construct_lyapunov_function(features, alpha)
+
+        # Plot the Lyapunov loss function
+        self.plot_loss_function(loss_values, alpha, run_name)
+
+        # Verify Lyapunov stability
+        self.verify_lyapunov_stability(V, features, alpha)
+
+        # Plot Lyapunov-related graphs
+        self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
+        self.plot_lyapunov_change(V, features, run_name, alpha)
+        self.plot_lyapunov_properties(V, features, run_name, alpha)
+        self.plot_equilibrium_points(features, run_name, alpha)
 
 
         # Additional plot for visualizing policy
@@ -1095,8 +1190,11 @@ class MyopicPolicy:
         self.save_mean_allowed_infected(allowed_means_per_episode, infected_means_per_episode, alpha, run_name,levels)
 
         # After the existing steady-state plot
-        # final_states = self.simulate_steady_state(num_simulations, num_steps, alpha)
-        # self.plot_simulated_steady_state(final_states, run_name, alpha)
+        final_states = self.simulate_steady_state(num_simulations, num_steps, alpha)
+        self.plot_simulated_steady_state(final_states, run_name, alpha)
+        with open(os.path.join(self.save_path, f"total_reward_{alpha}.txt"),
+                      'a') as f:
+                f.write(f"Total Reward: {sum(total_rewards)}\n")
 
 
         return avg_reward
@@ -1128,7 +1226,7 @@ def main(seed=42):
     num_steps = 100  # New parameter for steady-state simulation
 
     # List of alpha values to iterate over
-    alpha_values = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    alpha_values = [0.2, 0.4, 0.5]
     # alpha_values = [0.1]
 
     for alpha in alpha_values:
@@ -1149,6 +1247,10 @@ def main(seed=42):
         )
 
         print(f"Average Reward for alpha {alpha}: {avg_reward}")
+
+        # Running reinforcement learning
+        # avg_reward = myopic_policy.reinforcement_learning(run_name=run_name, num_episodes=num_episodes, alpha=alpha, csv_path=csv_path)
+
 
 if __name__ == "__main__":
     main()

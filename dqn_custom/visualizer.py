@@ -550,4 +550,3 @@ def states_visited_viz(states, visit_counts, alpha, results_subdirectory):
     # plt.close()
 
     return file_paths
-

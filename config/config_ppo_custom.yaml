@@ -1,21 +1,23 @@
 agent:
   # Existing parameters
-  hidden_units: 16
-  discount_factor: 0.1
+  hidden_units: 64
+  num_layers: 20
+  discount_factor: 0.9
   max_episodes: 1000
   exploration_rate: 1.0
-  min_exploration_rate: 0.01
+  min_exploration_rate: 0.001
   exploration_decay_rate: 0.995
-  learning_rate: 0.001
+  learning_rate: 0.0001
   learning_rate_decay: 0.999
   min_learning_rate: 0.0001
-  softmax_temperature: 0.1
+  softmax_temperature: 0.2
   e_decay_function: 3
   clip_epsilon: 0.2
 
   # PPO-specific parameters
-  clip_range: 0.01
+  clip_range: 0.2
   value_coefficient: 0.05
   entropy_coefficient: 0.8
   max_grad_norm: 0.5
+  gae_lambda: 0.95
 

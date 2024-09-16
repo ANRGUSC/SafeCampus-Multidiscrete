@@ -163,7 +163,7 @@ class PPOCustomAgent:
         # Initialize agent-specific configurations and variables
 
         self.max_episodes = self.agent_config['agent']['max_episodes']
-        self.gamma = self.agent_config['agent']['discount_factor']
+        self.gamma = None
         self.value_loss_coeff = self.agent_config['agent']['value_coefficient']
         self.entropy_coeff = self.agent_config['agent']['entropy_coefficient']
         self.exploration_rate = self.agent_config['agent']['exploration_rate']
@@ -267,7 +267,7 @@ class PPOCustomAgent:
         # Iterate over rewards and dones in reverse order
         for reward, done in zip(reversed(rewards), reversed(dones)):
             # If done is True (1), set discounted_return to 0
-            discounted_return = reward + self.gamma * discounted_return * (1 - done)
+            discounted_return = reward
             returns.insert(0, discounted_return)
 
         return returns
@@ -358,7 +358,7 @@ class PPOCustomAgent:
         file_exists = os.path.isfile(self.csv_file_path)
         csvfile = open(self.csv_file_path, 'a', newline='')
         writer = csv.DictWriter(csvfile,
-                                fieldnames=['episode', 'cumulative_reward', 'average_reward', 'discounted_reward',
+                                fieldnames=['episode', 'cumulative_reward', 'average_reward',
                                             'convergence_rate', 'sample_efficiency', 'policy_entropy',
                                             'space_complexity'])
         if not file_exists:
@@ -443,7 +443,6 @@ class PPOCustomAgent:
                 'episode': episode,
                 'cumulative_reward': sum(rewards),
                 'average_reward': np.mean(rewards),
-                'discounted_reward': sum([r * (self.gamma ** i) for i, r in enumerate(rewards)]),
                 'sample_efficiency': len(visited_states),
                 'policy_entropy': entropy_loss.item(),
                 'space_complexity': len(visited_state_counts)
@@ -471,7 +470,7 @@ class PPOCustomAgent:
         df = pd.read_csv(StringIO(csv_data))
 
         # Define metrics to plot
-        metrics = ['cumulative_reward', 'average_reward', 'discounted_reward', 'sample_efficiency', 'policy_entropy',
+        metrics = ['cumulative_reward', 'average_reward',  'sample_efficiency', 'policy_entropy',
                    'space_complexity']
 
         # Plot each metric separately
@@ -928,10 +927,10 @@ class PPOCustomAgent:
 
     def construct_lyapunov_function(self, features, alpha):
         model = LyapunovNet(input_dim=2, hidden_dim=64, output_dim=1)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
         loss_values = []
         epochs = 1000
-        epsilon = 1e-6
+        epsilon = 1e-8
 
         train_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
 
@@ -1027,9 +1026,13 @@ class PPOCustomAgent:
         next_states = []
         for state in states:
             with torch.no_grad():
-                q_values = self.model(state.unsqueeze(0))
-                action = q_values.argmax(dim=1).item()
-                allowed_value = action * 50  # Convert to allowed values (0, 50, 100)
+                state_tensor = torch.FloatTensor(state).unsqueeze(0)
+                policy_logits, _ = self.model(state_tensor)
+                policy_dist = F.softmax(policy_logits, dim=-1)
+                action_index = torch.multinomial(policy_dist, 1).item()
+                scaled_action = self.scale_action(action_index, self.output_dim)
+
+                allowed_value =  scaled_action * 50  # Convert to allowed values (0, 50, 100)
 
             current_infected = state[0].item()
             community_risk = state[1].item()
@@ -1515,9 +1518,13 @@ class PPOCustomAgent:
                 state = torch.tensor([infected, risk], dtype=torch.float32)
 
                 with torch.no_grad():
-                    q_values = self.model(state.unsqueeze(0))
-                    action = q_values.argmax().item()
-                    allowed_value = action * 50  # Convert to allowed values (0, 50, 100)
+                    state_tensor = torch.FloatTensor(state).unsqueeze(0)
+                    policy_logits, _ = self.model(state_tensor)
+                    policy_dist = F.softmax(policy_logits, dim=-1)
+                    action_index = torch.multinomial(policy_dist, 1).item()
+                    scaled_action = self.scale_action(action_index, self.output_dim)
+
+                    allowed_value = scaled_action * 50  # Convert to allowed values (0, 50, 100)
 
                 alpha_infection = 0.005
                 beta_infection = 0.01
@@ -1543,9 +1550,9 @@ class PPOCustomAgent:
         """
         plt.figure(figsize=(10, 8))
 
-        # Calculate the 2D histogram
-        hist, xedges, yedges = np.histogram2d(final_states[:, 1], final_states[:, 0], bins=50,
-                                              range=[[0, 1], [0, 100]])
+        # Calculate the 2D histogram with x as infected individuals and y as community risk
+        hist, xedges, yedges = np.histogram2d(final_states[:, 0], final_states[:, 1], bins=50,
+                                              range=[[0, 100], [0, 1]])
 
         # Plot the 2D histogram
         plt.imshow(hist.T, origin='lower', aspect='auto',
@@ -1553,8 +1560,8 @@ class PPOCustomAgent:
                    cmap='gray_r')
 
         plt.colorbar(label='Frequency')
-        plt.xlabel('Community Risk')
-        plt.ylabel('Infected Individuals')
+        plt.xlabel('Infected Individuals')
+        plt.ylabel('Community Risk')
         plt.title(f'Simulated Steady-State Distribution\nRun: {run_name}, Alpha: {alpha}')
 
         # Save the plot
@@ -1650,11 +1657,21 @@ class PPOCustomAgent:
             infection_condition_met = infection_safety_percentage >= (100 - z)
             attendance_condition_met = attendance_safety_percentage >= z
 
-            # Construct CBFs and verify forward invariance
-            B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time,
-                                        evaluation_subdirectory, x_value, y_value)
-            is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time,
-                                                          infected_values_over_time, evaluation_subdirectory)
+            # Construct the Lyapunov function
+            features = list(zip(allowed_values_over_time, infected_values_over_time, community_risks))
+            V, theta, loss_values = self.construct_lyapunov_function(features, alpha)
+
+            self.plot_loss_function(loss_values, alpha, run_name)
+            self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
+            self.plot_lyapunov_change(V, features, run_name, alpha)
+            self.plot_equilibrium_points(features, run_name, alpha)
+            self.plot_lyapunov_properties(V, features, run_name, alpha)
+            # Calculate the stationary distribution and unique states
+            unique_states, stationary_distribution = self.calculate_stationary_distribution(states, next_states)
+
+            # Plot the equilibrium points with the stationary distribution
+            self.plot_equilibrium_points_with_stationary_distribution(stationary_distribution, unique_states,
+                                                                      run_name)
 
             # Plot transition matrix
             self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name,
@@ -1665,6 +1682,14 @@ class PPOCustomAgent:
                                                         self.community_risk_values, z, run_name,
                                                         evaluation_subdirectory, alpha)
             print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
+            # Construct CBFs and verify forward invariance
+            B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time,
+                                        evaluation_subdirectory, optimal_x, optimal_y)
+            is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time,
+                                                          infected_values_over_time, evaluation_subdirectory)
+
+            final_states = self.simulate_steady_state(alpha=alpha)
+            self.plot_simulated_steady_state(final_states, run_name, alpha)
 
             # Save final results
             with open(os.path.join(evaluation_subdirectory, 'final_results.txt'), 'w') as f:
@@ -1713,27 +1738,11 @@ class PPOCustomAgent:
             # Log all states visualizations
             self.log_all_states_visualizations(self.model, self.run_name, self.max_episodes, alpha,
                                                self.results_subdirectory)
+            with open(os.path.join(evaluation_subdirectory, f"total_reward.txt"),
+                      'a') as f:
+                f.write(f"Total Reward: {sum(total_rewards)}\n")
 
-        return total_rewards
-
-
-def load_saved_model(model_directory, agent_type, run_name, input_dim, hidden_dim, num_actions):
-    """Load a saved model's state dict from the subdirectory."""
-    model_subdirectory = os.path.join(model_directory, agent_type, run_name)
-    model_file_path = os.path.join(model_subdirectory, 'model.pt')
-
-    if not os.path.exists(model_file_path):
-        print(f"Model file not found at {model_file_path}")
-        return None
-
-    # Initialize a new model instance
-    model = ActorCriticNetwork(input_dim, hidden_dim, num_actions)
-
-    # Load the saved state dict
-    model.load_state_dict(torch.load(model_file_path))
-    model.eval()
-
-    return model
+        return total_rewards, allowed_values_over_time, infected_values_over_time, community_risk_values
 
 
 def calculate_explained_variance(actual_rewards, predicted_rewards):

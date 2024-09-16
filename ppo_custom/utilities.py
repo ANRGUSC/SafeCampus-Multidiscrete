@@ -43,8 +43,11 @@ class ExplorationRateDecay:
             exploration_rate = self.initial_exploration_rate - (
                         self.initial_exploration_rate - self.min_exploration_rate) * (episode / self.max_episodes)
 
-        elif self.current_decay_function == 3:  # Polynomial Decay
-            exploration_rate = self.initial_exploration_rate * (1 - episode / self.max_episodes) ** 2
+
+        elif self.current_decay_function == 3:  # Polynomial Decay with Decay Rate
+
+            exploration_rate = self.initial_exploration_rate * (1 - (episode / self.max_episodes) ** 3)
+
 
         elif self.current_decay_function == 4:  # Inverse Time Decay
             exploration_rate = self.initial_exploration_rate / (1 + episode)

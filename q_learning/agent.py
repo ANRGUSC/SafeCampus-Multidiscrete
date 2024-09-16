@@ -190,7 +190,7 @@ class QLearningAgent:
         self.run_name = run_name
         self.max_episodes = self.agent_config['agent']['max_episodes']
         self.learning_rate = self.agent_config['agent']['learning_rate']
-        self.discount_factor = self.agent_config['agent']['discount_factor']
+        self.discount_factor = None
         self.exploration_rate = self.agent_config['agent']['exploration_rate']
         self.min_exploration_rate = self.agent_config['agent']['min_exploration_rate']
         self.exploration_decay_rate = self.agent_config['agent']['exploration_decay_rate']
@@ -389,7 +389,7 @@ class QLearningAgent:
         file_exists = os.path.isfile(csv_file_path)
         csvfile = open(csv_file_path, 'a', newline='')
         writer = csv.DictWriter(csvfile,
-                                fieldnames=['episode', 'cumulative_reward', 'average_reward', 'discounted_reward',
+                                fieldnames=['episode', 'cumulative_reward', 'average_reward',
                                             'q_value_change', 'sample_efficiency', 'policy_entropy',
                                             'space_complexity'])
         if not file_exists:
@@ -447,11 +447,11 @@ class QLearningAgent:
                 episode_allowed.append(sum(info.get('allowed', [])))  # Sum all courses' allowed students
                 episode_infected.append(sum(info.get('infected', [])))
 
-                new_value = (1 - self.learning_rate) * old_value + self.learning_rate * (
-                        reward + self.discount_factor * next_max)
+                new_value = (1 - self.learning_rate) * old_value + self.learning_rate * reward
+
                 self.q_table[state_idx, action_idx] = new_value
 
-                td_error = abs(reward + self.discount_factor * next_max - old_value)
+                td_error = abs(reward - old_value)
                 episode_td_errors.append(td_error)
 
                 if last_action is not None and last_action != action_idx:
@@ -498,7 +498,6 @@ class QLearningAgent:
                 'episode': episode,
                 'cumulative_reward': total_reward,
                 'average_reward': avg_episode_return,
-                'discounted_reward': sum([r * (self.discount_factor ** i) for i, r in enumerate(e_return)]),
                 'q_value_change': q_value_change,
                 'sample_efficiency': sample_efficiency,
                 'policy_entropy': policy_entropy,
@@ -550,7 +549,7 @@ class QLearningAgent:
         df = pd.read_csv(StringIO(csv_data))
 
         # Define metrics to plot
-        metrics = ['cumulative_reward', 'average_reward', 'discounted_reward',
+        metrics = ['cumulative_reward', 'average_reward',
                    'q_value_change', 'sample_efficiency', 'policy_entropy',
                    'space_complexity']
 
@@ -1267,9 +1266,9 @@ class QLearningAgent:
         """
         plt.figure(figsize=(10, 8))
 
-        # Calculate the 2D histogram
-        hist, xedges, yedges = np.histogram2d(final_states[:, 1], final_states[:, 0], bins=50,
-                                              range=[[0, 1], [0, 100]])
+        # Calculate the 2D histogram with x as infected individuals and y as community risk
+        hist, xedges, yedges = np.histogram2d(final_states[:, 0], final_states[:, 1], bins=50,
+                                              range=[[0, 100], [0, 1]])
 
         # Plot the 2D histogram
         plt.imshow(hist.T, origin='lower', aspect='auto',
@@ -1277,16 +1276,14 @@ class QLearningAgent:
                    cmap='gray_r')
 
         plt.colorbar(label='Frequency')
-        plt.xlabel('Community Risk')
-        plt.ylabel('Infected Individuals')
+        plt.xlabel('Infected Individuals')
+        plt.ylabel('Community Risk')
         plt.title(f'Simulated Steady-State Distribution\nRun: {run_name}, Alpha: {alpha}')
 
         # Save the plot
         plt.tight_layout()
         plt.savefig(os.path.join(self.results_subdirectory, f'simulated_steady_state_{run_name}_alpha_{alpha}.png'))
         plt.close()
-
-
 
     def evaluate(self, run_name, num_episodes=1, x_value=38, y_value=80, z=95, alpha=0.5, csv_path=None):
         policy_dir = self.shared_config['directories']['policy_directory']
@@ -1381,78 +1378,28 @@ class QLearningAgent:
                 all_infected_values.extend(infected_values_over_time)
                 all_community_risk_values.extend(community_risk_values)
 
-                # # Calculate the percentage of time infections exceed the threshold
-                # time_above_x = sum(1 for val in infected_values_over_time if val > x_value)
-                # infection_exceed_percentage = (time_above_x / len(infected_values_over_time)) * 100
-                #
-                # time_with_y_present = sum(1 for val in allowed_values_over_time if val >= y_value)
-                # attendance_safety_percentage = (time_with_y_present / len(allowed_values_over_time)) * 100
-                #
-                # # Determine if the safety conditions are met
-                # infection_condition_met = infection_exceed_percentage <= (100 - z)
-                # attendance_condition_met = attendance_safety_percentage >= z
-                #
-                # # Log the safety condition results in the table
-                # safety_writer.writerow([
-                #     episode + 1,
-                #     infection_exceed_percentage,
-                #     'Yes' if infection_condition_met else 'No',
-                #     attendance_safety_percentage,
-                #     'Yes' if attendance_condition_met else 'No'
-                # ])
-                #
-                # # Write the interpretation to the text file
-                # interpretation_file.write(
-                #     f"Episode {episode + 1} Interpretation:\n"
-                #     f"Safety Condition: No more than {x_value} infections for {100 - z}% of time: "
-                #     f"{infection_exceed_percentage:.2f}% -> {'Condition Met' if infection_condition_met else 'Condition Not Met'}\n"
-                #     f"Safety Condition: At least {y_value} allowed students for {z}% of time: "
-                #     f"{attendance_safety_percentage:.2f}% -> {'Condition Met' if attendance_condition_met else 'Condition Not Met'}\n\n"
-                # )
-                #
-                # # Plotting safety conditions
-                # plt.figure(figsize=(10, 6))
-                # plt.scatter(allowed_values_over_time, infected_values_over_time, color='blue', label='State Points')
-                # plt.axhline(y=x_value, color='red', linestyle='--', label=f'Infection Threshold (x={x_value})')
-                # plt.axvline(x=y_value, color='green', linestyle='--', label=f'Attendance Threshold (y={y_value})')
-                # plt.xlabel('Allowed Students')
-                # plt.ylabel('Infected Individuals')
-                # plt.legend()
-                # plt.title(f'Safety Set Identification - Episode {episode + 1}')
-                # plt.grid(True)
-                # plt.savefig(os.path.join(evaluation_subdirectory, f'safety_set_plot_episode_{run_name}.png'))
-                # plt.close()
-
-                # Construct CBFs using direct x and y values
-                B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time,
-                                            evaluation_subdirectory, x_value, y_value)
-
-                # Verify forward invariance
-                is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time,
-                                                              infected_values_over_time, evaluation_subdirectory)
-
                 # # After the episode loop
-                # # After the episode loop
-                # features = list(zip(allowed_values_over_time, infected_values_over_time,
-                #                     self.community_risk_values[:len(allowed_values_over_time)]))
-                # V, loss_values = self.construct_lyapunov_function(features, alpha)
-                #
-                # # Evaluate Lyapunov function using the CSV data
-                # eval_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
-                # self.evaluate_lyapunov(V, eval_states, alpha)
-                #
-                # self.plot_loss_function(loss_values, alpha, run_name)
-                # self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
-                # self.plot_lyapunov_change(V, features, run_name, alpha)
-                # self.plot_equilibrium_points(features, run_name, alpha)
-                # self.plot_lyapunov_properties(V, features, run_name, alpha)
-                #
-                # # Calculate the stationary distribution and unique states
-                # unique_states, stationary_distribution = self.calculate_stationary_distribution(states, next_states)
-                #
-                # # Plot the equilibrium points with the stationary distribution
-                # self.plot_equilibrium_points_with_stationary_distribution(stationary_distribution, unique_states,
-                #                                                           run_name)
+            # After the episode loop
+            features = list(zip(allowed_values_over_time, infected_values_over_time,
+                                    self.community_risk_values[:len(allowed_values_over_time)]))
+            V, loss_values = self.construct_lyapunov_function(features, alpha)
+
+                # Evaluate Lyapunov function using the CSV data
+            eval_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
+            self.evaluate_lyapunov(V, eval_states, alpha)
+
+            self.plot_loss_function(loss_values, alpha, run_name)
+            self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
+            self.plot_lyapunov_change(V, features, run_name, alpha)
+            self.plot_equilibrium_points(features, run_name, alpha)
+            self.plot_lyapunov_properties(V, features, run_name, alpha)
+
+                # Calculate the stationary distribution and unique states
+            unique_states, stationary_distribution = self.calculate_stationary_distribution(states, next_states)
+
+                # Plot the equilibrium points with the stationary distribution
+            self.plot_equilibrium_points_with_stationary_distribution(stationary_distribution, unique_states,
+                                                                          run_name)
 
             # After all episodes have been evaluated
             self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name,
@@ -1461,14 +1408,16 @@ class QLearningAgent:
                                                         self.community_risk_values, z, run_name,
                                                         evaluation_subdirectory)
             print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
+            final_states = self.simulate_steady_state(alpha=alpha)
+            self.plot_simulated_steady_state(final_states, run_name, alpha)
 
         print("Evaluation complete. Preparing to plot final results...")
         print(
             f"Data lengths: allowed={len(all_allowed_values)}, infected={len(all_infected_values)}, community_risk={len(all_community_risk_values)}")
 
         # Call the plotting function with all accumulated data
-        # final_states = self.simulate_steady_state(alpha=alpha)
-        # self.plot_simulated_steady_state(final_states, run_name, alpha)
+        final_states = self.simulate_steady_state(alpha=alpha)
+        self.plot_simulated_steady_state(final_states, run_name, alpha)
 
         # Plotting
         x = np.arange(len(infected_values_over_time))
@@ -1514,7 +1463,9 @@ class QLearningAgent:
         print(f"Results saved to {evaluation_subdirectory}")
         print('plot paths:', plot_paths)
 
-        print(allowed_values_over_time, infected_values_over_time, community_risk_values)
+        with open(os.path.join(evaluation_subdirectory, f"total_reward.txt"),
+                  'a') as f:
+            f.write(f"Total Reward: {sum(total_rewards)}\n")
 
         return total_rewards, allowed_values_over_time, infected_values_over_time, community_risk_values
 
@@ -1769,8 +1720,8 @@ class QLearningAgent:
                     raise
 
                 next_max = np.max(self.q_table[self.all_states.index(str(tuple(next_state)))])
-                new_value = (1 - self.learning_rate) * old_value + self.learning_rate * (
-                        reward + self.discount_factor * next_max)
+                new_value = (1 - self.learning_rate) * old_value + self.learning_rate * reward
+
                 self.q_table[state_idx, action_idx] = new_value
 
                 step += 1

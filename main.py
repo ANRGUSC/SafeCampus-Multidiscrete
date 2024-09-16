@@ -59,7 +59,7 @@ def run_training_and_evaluation(env, shared_config_path, alpha, agent_type, algo
         print(f"Training complete. Starting evaluation phase using CSV: {csv_path}")
         env_eval, _ = initialize_environment(shared_config_path, read_community_risk_from_csv=True, csv_path=csv_path,
                                              algorithm=algorithm, mode='eval')
-        total_rewards = run_evaluation(env_eval, shared_config_path, agent_type, alpha, run_name, algorithm, csv_path)
+        total_rewards, allowed, infected, community_risk = run_evaluation(env_eval, shared_config_path, agent_type, alpha, run_name, algorithm, csv_path)
         return total_rewards
 
     except Exception as e:
@@ -185,7 +185,7 @@ def run_evaluation(env, shared_config_path, agent_type, alpha, run_name, algorit
                        csv_path=csv_path)
 
     # Run the evaluation
-    total_rewards = agent.evaluate(run_name=run_name, alpha=alpha, csv_path=csv_path)
+    total_rewards, allowed, infected, community_risk = agent.evaluate(run_name=run_name, alpha=alpha, csv_path=csv_path)
 
     # Log results
     print(f"Total Reward for {agent_type} agent using {algorithm} algorithm: {sum(total_rewards)}")
@@ -205,7 +205,7 @@ def run_evaluation(env, shared_config_path, agent_type, alpha, run_name, algorit
 
     print(f"Evaluation results saved to {results_file}")
 
-    return total_rewards
+    return total_rewards, allowed, infected, community_risk
 
 
 def run_evaluation_random(env, shared_config_path, agent_type, alpha, run_name, algorithm):
