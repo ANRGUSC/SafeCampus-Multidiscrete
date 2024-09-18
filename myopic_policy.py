@@ -316,34 +316,32 @@ class MyopicPolicy:
         risk = rng.uniform(0, 1, num_samples)
         return torch.tensor(np.column_stack((infected, risk)), dtype=torch.float32)
 
-    def construct_lyapunov_function(self, features, alpha):
+    def construct_lyapunov_function(self, infected_values, community_risk_values, alpha):
         model = LyapunovNet(input_dim=2, hidden_dim=16, output_dim=1)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.000009)
         loss_values = []
         epochs = 1000
         epsilon = 1e-8
 
-        train_states = self.generate_diverse_states(100)
+        # Combine the infected values and community risk values to form the state tensor
+        states = np.column_stack((infected_values[:-1], community_risk_values[:-1]))  # Current states
+        next_states = np.column_stack((infected_values[1:], community_risk_values[1:]))  # Next states (shifted)
+
+        states_tensor = torch.tensor(states, dtype=torch.float32)
+        next_states_tensor = torch.tensor(next_states, dtype=torch.float32)
 
         for epoch in range(epochs):
             optimizer.zero_grad()
-            V = model(train_states)
-            next_states = self.get_next_states(train_states, alpha)
-            V_next = model(next_states)
+            V = model(states_tensor)
 
-            # Lyapunov conditions
-            positive_definite_loss = F.relu(-V + 1).mean()
-            decreasing_loss = F.relu(V_next - V + epsilon).mean()
+            # Use the actual next states observed over time
+            V_next = model(next_states_tensor)
 
-            # Ensure V(0) = 0
-            zero_state = torch.zeros_like(train_states[0]).unsqueeze(0)
-            origin_loss = model(zero_state).squeeze() ** 2
+            # Lyapunov stability conditions
+            positive_definite_loss = F.relu(-V + epsilon).mean()  # Ensure Lyapunov is non-negative
+            decreasing_loss = F.relu(V_next - V + epsilon).mean()  # Ensure Lyapunov decreases over time
 
-            # Ensure V increases with distance from origin
-            distance_from_origin = torch.norm(train_states, dim=1)
-            distance_loss = F.relu(1 - V / (distance_from_origin + epsilon)).mean()
-
-            loss = positive_definite_loss + decreasing_loss + origin_loss + distance_loss
+            loss = positive_definite_loss + decreasing_loss
 
             if torch.isnan(loss) or torch.isinf(loss):
                 print(f"Warning: NaN or Inf detected at epoch {epoch}")
@@ -353,40 +351,23 @@ class MyopicPolicy:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
-            if epoch % 500 == 0:
-                print(f"Epoch {epoch}, Loss: {loss.item():.6f}, "
-                      f"PD Loss: {positive_definite_loss.item():.6f}, "
-                      f"Dec Loss: {decreasing_loss.item():.6f}, "
-                      f"Origin Loss: {origin_loss.item():.6f}, "
-                      f"Distance Loss: {distance_loss.item():.6f}")
-
             loss_values.append(loss.item())
-
-        torch.save(model.state_dict(), os.path.join(self.save_path, 'lyapunov_model.pth'))
-
-        # Print final loss components and function values
-        with torch.no_grad():
-            V_final = model(train_states)
-            V_next_final = model(next_states)
-            print(
-                f"Final V stats: min={V_final.min().item():.4f}, max={V_final.max().item():.4f}, mean={V_final.mean().item():.4f}")
-            print(
-                f"Final V_next stats: min={V_next_final.min().item():.4f}, max={V_next_final.max().item():.4f}, mean={V_next_final.mean().item():.4f}")
 
         return model, loss_values
 
-    def evaluate_lyapunov(self, model, features, alpha):
-        eval_states = torch.tensor([[f[1], f[2]] for f in features], dtype=torch.float32)
+    def evaluate_lyapunov_stability(self, lyapunov_model, states, alpha):
+        states_tensor = torch.tensor(states, dtype=torch.float32)
 
         with torch.no_grad():
-            V = model(eval_states).squeeze()
-            V_next = model(self.get_next_states(eval_states, alpha)).squeeze()
+            V = lyapunov_model(states_tensor).squeeze()
+            next_states = self.get_next_states(states_tensor, alpha)
+            V_next = lyapunov_model(next_states).squeeze()
 
+            # Check positive definiteness
             positive_definite = (V > 0).float().mean()
-            decreasing = (V_next < V).float().mean()
 
-        print(f"Positive definite: {positive_definite.item():.2%}")
-        print(f"Decreasing: {decreasing.item():.2%}")
+            # Check if V is decreasing
+            decreasing = (V_next < V).float().mean()
 
         return positive_definite.item(), decreasing.item()
 
@@ -429,52 +410,94 @@ class MyopicPolicy:
 
         return positive_definite > 0.99 and decreasing > 0.99
 
-    def plot_steady_state_and_stable_points(self, model, features, run_name, alpha):
+    def plot_steady_state_and_stable_points(self, lyapunov_model, run_name, alpha, infected_t, risk_t,
+                                            num_simulations=1000, num_steps=100):
+        # Define the grid
         infected = np.linspace(0, 100, 100)
         risk = np.linspace(0, 1, 100)
         X, Y = np.meshgrid(infected, risk)
-        states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
+        grid_states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
 
+        # Calculate Lyapunov function values for the grid
         with torch.no_grad():
-            V = model(states).squeeze().numpy().reshape(X.shape)
+            V_values = lyapunov_model(grid_states).squeeze().cpu().numpy().reshape(X.shape)
 
-        # Compute steady-state distribution
-        V_normalized = (V - V.min()) / (V.max() - V.min() + 1e-10)  # Normalize V to [0, 1]
-        steady_state = np.exp(-V_normalized * 10)  # Scale factor to accentuate differences
-        steady_state /= steady_state.sum()  # Normalize
+        # Calculate Lyapunov function change (ΔV)
+        next_states = self.get_next_states(grid_states, alpha)
+        with torch.no_grad():
+            V_next_values = lyapunov_model(next_states).squeeze().cpu().numpy().reshape(X.shape)
 
-        # Find local minima (asymptotically stable points)
-        min_coords = argrelextrema(V, np.less, order=5)
-        stable_points = list(zip(X[min_coords], Y[min_coords]))
+        # Ensure that delta_V is calculated as the difference between consecutive states' Lyapunov values
+        delta_V = V_next_values - V_values  # This is now the same calculation as in plot_lyapunov_properties
+        print(f"Delta V: {delta_V.min()}, {delta_V.max()}")
+        print("Delta V values:", delta_V)
 
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+        # Calculate metrics
+        positive_definite_percentage = np.mean(V_values > 0) * 100  # Proportion of positive definite values
+        mean_lyapunov_value = np.mean(V_values)  # Mean Lyapunov value
+        mean_delta_V = np.mean(delta_V)  # Average rate of change (Delta V)
+        time_to_equilibrium = np.argmax(np.abs(delta_V) < 1e-3) if np.any(np.abs(delta_V) < 1e-3) else len(
+            delta_V)  # Time to reach equilibrium
+        stable_region_percentage = np.mean(np.abs(V_values) < 1e-3) * 100  # Percentage of time in stable region
+        integral_lyapunov_value = np.trapz(V_values.flatten())  # Integral of Lyapunov function over time
+        variance_lyapunov = np.var(V_values)  # Variance of Lyapunov values
 
-        # Plot steady-state distribution
-        im1 = ax1.contourf(X, Y, steady_state, levels=20, cmap='viridis')
-        ax1.set_title(f'Steady-State Distribution (Run: {run_name}, Alpha: {alpha})')
+        # Simulate trajectories for steady-state distribution
+        steady_state_samples = list(zip(infected_t, risk_t))
+        hist, xedges, yedges = np.histogram2d(
+            [s[0] for s in steady_state_samples],
+            [s[1] for s in steady_state_samples],
+            bins=[100, 100], range=[[0, 100], [0, 1]]
+        )
+        hist = hist / hist.sum()  # Normalize to get probability distribution
+
+        # Create the plot
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(30, 8))
+
+        # Plot 1: Steady-State Distribution
+        c1 = ax1.imshow(hist.T, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='gray_r')
+        ax1.set_title(f'Simulated Steady-State Distribution (Run: {run_name}, Alpha: {alpha})')
         ax1.set_xlabel('Infected')
         ax1.set_ylabel('Community Risk')
-        fig.colorbar(im1, ax=ax1, label='Probability Density')
+        fig.colorbar(c1, ax=ax1, label='Probability')
 
-        # Plot Lyapunov function
-        im2 = ax2.contourf(X, Y, V, levels=20, cmap='coolwarm')
+        # Plot 2: Lyapunov Function
+        c2 = ax2.contourf(X, Y, V_values, levels=20, cmap='gray')
         ax2.set_title(f'Lyapunov Function (Run: {run_name}, Alpha: {alpha})')
         ax2.set_xlabel('Infected')
         ax2.set_ylabel('Community Risk')
-        fig.colorbar(im2, ax=ax2, label='V(x)')
+        fig.colorbar(c2, ax=ax2, label='Lyapunov Value')
 
-        # Plot stable points
-        for point in stable_points:
-            ax2.plot(point[0], point[1], 'ko', markersize=10)
+        # Plot 3: Lyapunov Function Change (ΔV) - Now using the same logic for ΔV calculation
+        c3 = ax3.contourf(X, Y, delta_V, levels=20, cmap='gray', center=0)
+        ax3.set_title(f'Lyapunov Function Change (Run: {run_name}, Alpha: {alpha})')
+        ax3.set_xlabel('Infected')
+        ax3.set_ylabel('Community Risk')
+        fig.colorbar(c3, ax=ax3, label='Lyapunov Value Change')
 
+        # Adjust layout and save plot
         plt.tight_layout()
-        plt.savefig(os.path.join(self.save_path, f'steady_state_and_stable_points_{run_name}_alpha_{alpha}.png'))
+        plt.savefig(
+            os.path.join(self.save_path, f'steady_state_and_stable_points_{run_name}_alpha_{alpha}.png'))
         plt.close()
 
-        # Print some statistics for debugging
-        print(f"Lyapunov function stats: min={V.min():.4f}, max={V.max():.4f}, mean={V.mean():.4f}")
-        print(
-            f"Steady-state distribution stats: min={steady_state.min():.4e}, max={steady_state.max():.4e}, mean={steady_state.mean():.4e}")
+        # Save the metrics to a CSV file
+        metrics_file_path = os.path.join(self.save_path, f'lyapunov_metrics_{run_name}_alpha_{alpha}.csv')
+        with open(metrics_file_path, mode='w', newline='') as metrics_file:
+            writer = csv.writer(metrics_file)
+            # Write headers
+            writer.writerow([
+                'Run Name', 'Alpha', 'Mean Lyapunov Value', 'Proportion Positive Definite (%)',
+                'Average Rate of Change (Delta V)', 'Time to Equilibrium (steps)',
+                'Percentage in Stable Region (%)', 'Integral of Lyapunov Function', 'Variance of Lyapunov Values'
+            ])
+            # Write the metrics
+            writer.writerow([
+                run_name, alpha, mean_lyapunov_value, positive_definite_percentage, mean_delta_V,
+                time_to_equilibrium, stable_region_percentage, integral_lyapunov_value, variance_lyapunov
+            ])
+
+        print(f"Metrics saved to {metrics_file_path}")
 
     def plot_equilibrium_points(self, features, run_name, alpha):
         infected = [f[1] for f in features]
@@ -618,28 +641,32 @@ class MyopicPolicy:
         plt.savefig(os.path.join(self.save_path, f'lyapunov_change_{run_name}_alpha_{alpha}.png'))
         plt.close()
 
-    def plot_lyapunov_properties(self, model, features, run_name, alpha):
-        eval_states = torch.tensor([[f[1], f[2]] for f in features], dtype=torch.float32)
+    def plot_lyapunov_properties(self, V, infected_values, community_risk_values, run_name, alpha):
+        # Convert infected and community risk values into tensors
+        infected_tensor = torch.tensor(infected_values, dtype=torch.float32)
+        risk_tensor = torch.tensor(community_risk_values, dtype=torch.float32)
 
+        # Stack them together to form the state representation
+        states_tensor = torch.stack([infected_tensor, risk_tensor], dim=1)
+
+        # Compute V(x) values and their differences (ΔV)
         with torch.no_grad():
-            V = model(eval_states).squeeze()
-            next_states = self.get_next_states(eval_states, alpha)
-            V_next = model(next_states).squeeze()
-            delta_V = V_next - V
+            V_values = V(states_tensor).squeeze()  # Compute Lyapunov values for the states
+            delta_V = V_values[1:] - V_values[:-1]  # Compute differences between consecutive values
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 8))
 
-        # Plot Lyapunov function values
-        ax1.plot(V.numpy(), label='V(x)')
+        # Plot V(x) for each state index
+        ax1.plot(V_values.cpu().numpy(), label='V(x)')
         ax1.axhline(y=0, color='r', linestyle='--', label='V(x) = 0')
-        ax1.set_title(f'Lyapunov Function Values (Run: {run_name}, Alpha: {alpha})')
+        ax1.set_title(f'Lyapunov Function (Run: {run_name}, Alpha: {alpha})')
         ax1.set_xlabel('State Index')
         ax1.set_ylabel('V(x)')
         ax1.legend()
         ax1.grid(True)
 
-        # Plot delta V
-        ax2.plot(delta_V.numpy(), label='ΔV(x)')
+        # Plot ΔV(x) for each state index
+        ax2.plot(delta_V.cpu().numpy(), label='ΔV(x)')
         ax2.axhline(y=0, color='r', linestyle='--', label='ΔV(x) = 0')
         ax2.set_title(f'Change in Lyapunov Function (Run: {run_name}, Alpha: {alpha})')
         ax2.set_xlabel('State Index')
@@ -647,27 +674,21 @@ class MyopicPolicy:
         ax2.legend()
         ax2.grid(True)
 
-        # Plot V(x) vs ΔV(x)
-        ax3.scatter(V.numpy(), delta_V.numpy(), alpha=0.6)
-        ax3.axhline(y=0, color='r', linestyle='--', label='ΔV(x) = 0')
-        ax3.axvline(x=0, color='g', linestyle='--', label='V(x) = 0')
-        ax3.set_title(f'V(x) vs ΔV(x) (Run: {run_name}, Alpha: {alpha})')
-        ax3.set_xlabel('V(x)')
-        ax3.set_ylabel('ΔV(x)')
-        ax3.legend()
+        # Plot V(x) values as a scatter plot where the color represents the V(x) values
+        scatter = ax3.scatter(infected_tensor.cpu().numpy(), risk_tensor.cpu().numpy(),
+                              c=V_values.cpu().numpy(), cmap='gray', alpha=0.6)
+        ax3.set_title(f'Lyapunov Function (V(x)) vs Infected and Community Risk (Run: {run_name}, Alpha: {alpha})')
+        ax3.set_xlabel('Infected')
+        ax3.set_ylabel('Community Risk')
+        fig.colorbar(scatter, ax=ax3, label='V(x)')
         ax3.grid(True)
 
+        # Adjust layout and save plot
         plt.tight_layout()
         plt.savefig(os.path.join(self.save_path, f'lyapunov_properties_{run_name}_alpha_{alpha}.png'))
         plt.close()
 
-        positive_definite = (V > 0).float().mean()
-        decreasing = (delta_V < 0).float().mean()
-
-        print(f"Positive definite: {positive_definite.item():.2%}")
-        print(f"Decreasing: {decreasing.item():.2%}")
-
-        return positive_definite.item(), decreasing.item()
+        return V_values.mean().item(), delta_V.mean().item()
 
     def plot_safety_analysis_results(self, xy_values, z_values, infection_safety_results, attendance_safety_results,
                                      evaluation_subdirectory, run_name, alpha):
@@ -979,7 +1000,7 @@ class MyopicPolicy:
         print(f"Saved evaluation plot to {plot_filename}")
 
 
-    def simulate_steady_state(self, num_simulations, num_steps, alpha):
+    def simulate_states(self, num_simulations=100, num_steps=100, alpha=0.5):
         """
         Simulate the system for a long time to estimate the steady-state distribution.
 
@@ -991,13 +1012,17 @@ class MyopicPolicy:
         Returns:
         numpy.ndarray: Array of final states from all simulations.
         """
-        final_states = []
+        infected_values = []
+        community_risk_values = []
 
         for _ in range(num_simulations):
             infected = np.random.uniform(0, 100)  # Initial infected count
             risk = np.random.uniform(0, 1)  # Initial community risk
 
             for _ in range(num_steps):
+                infected_values.append(infected)
+                community_risk_values.append(risk)
+
                 infected_tensor = torch.tensor([infected], dtype=torch.float32)
                 risk_tensor = torch.tensor([risk], dtype=torch.float32)
 
@@ -1006,9 +1031,10 @@ class MyopicPolicy:
                 infected = new_infected.item()
                 risk = np.random.uniform(0, 1)  # Assuming risk is randomly distributed each step
 
-            final_states.append([infected, risk])
+        infected_values_array = np.array(infected_values)
+        community_risk_values_array = np.array(community_risk_values)
 
-        return np.array(final_states)
+        return infected_values_array, community_risk_values_array
 
     def plot_simulated_steady_state(self, final_states, run_name, alpha):
         """
@@ -1056,6 +1082,7 @@ class MyopicPolicy:
             summary_writer.writeheader()
             summary_writer.writerow({'mean_allowed': mean_allowed, 'mean_infected': mean_infected})
 
+
     def evaluate(self, run_name, num_episodes=1, alpha=0.5, csv_path=None, x_value=20, y_value=50, z=95,
                  perform_safety_analysis=True, num_simulations=1000, num_steps=1000):
         if csv_path:
@@ -1093,9 +1120,8 @@ class MyopicPolicy:
                                                                                       community_risk, alpha)
 
                     # Store the current state, next state, and community risk
-                    states.append(current_infected.numpy())
-                    next_states.append(new_infected.numpy())
-                    community_risks.append(community_risk.item())
+                    states.append([current_infected.item(), community_risk.item()])
+                    next_states.append([new_infected.item(), community_risk.item()])
 
                     total_reward += reward.item()
 
@@ -1134,26 +1160,48 @@ class MyopicPolicy:
         # Verify forward invariance
         is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time, infected_values_over_time)
 
-        # Construct Lyapunov function
-        features = list(zip(allowed_values_over_time, infected_values_over_time, community_risk_values))
-        V, loss_values = self.construct_lyapunov_function(features, alpha)
+        # # Construct Lyapunov function
+        # features = list(zip(allowed_values_over_time, infected_values_over_time, community_risk_values))
+        # V, loss_values = self.construct_lyapunov_function(features, alpha)
+        #
+        # # Plot the Lyapunov loss function
+        # self.plot_loss_function(loss_values, alpha, run_name)
+        #
+        # # Verify Lyapunov stability
+        # self.verify_lyapunov_stability(V, features, alpha)
+        #
+        # # Plot Lyapunov-related graphs
+        # self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
+        # self.plot_lyapunov_change(V, features, run_name, alpha)
+        # self.plot_lyapunov_properties(V, features, run_name, alpha)
+        # self.plot_equilibrium_points(features, run_name, alpha)
 
-        # Plot the Lyapunov loss function
+        infected_values, risk_values = self.simulate_states()
+        lyapunov_model, loss_values = self.construct_lyapunov_function(infected_values, risk_values, alpha)
+
+        # Plot Lyapunov function loss
         self.plot_loss_function(loss_values, alpha, run_name)
 
-        # Verify Lyapunov stability
-        self.verify_lyapunov_stability(V, features, alpha)
+        # Plot steady-state distribution and stable points
+        self.plot_steady_state_and_stable_points(lyapunov_model, run_name, alpha, infected_values, risk_values)
 
-        # Plot Lyapunov-related graphs
-        self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
-        self.plot_lyapunov_change(V, features, run_name, alpha)
-        self.plot_lyapunov_properties(V, features, run_name, alpha)
-        self.plot_equilibrium_points(features, run_name, alpha)
+        # Plot Lyapunov properties
+        mean_v, mean_delta_v = self.plot_lyapunov_properties(lyapunov_model, infected_values, risk_values,
+                                                             run_name, alpha)
+
+        print(f"Mean Lyapunov Value: {mean_v}")
+        print(f"Mean Change in Lyapunov Value: {mean_delta_v}")
+
+        # Evaluate Lyapunov stability
+        positive_definite, decreasing = self.evaluate_lyapunov_stability(lyapunov_model, torch.tensor(states, dtype=torch.float32), alpha)
+
+        print(f"Lyapunov Positive Definite: {positive_definite:.2%}")
+        print(f"Lyapunov Decreasing: {decreasing:.2%}")
 
 
         # Additional plot for visualizing policy
         self.visualize_policy(run_name, alpha)
-        self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name, alpha)
+        # self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name, alpha)
 
         # Perform safety analysis over ranges if specified
         if perform_safety_analysis:
@@ -1189,15 +1237,156 @@ class MyopicPolicy:
         # Calculate and save the means
         self.save_mean_allowed_infected(allowed_means_per_episode, infected_means_per_episode, alpha, run_name,levels)
 
+        allowed_barrier, infected_barrier, risk_barrier = self.simulate_states_with_barrier_control \
+            (infected_values, risk_values, optimal_x, optimal_y, alpha, 100)
+
+        self.plot_barrier_simulation_results(allowed_barrier, infected_barrier, risk_barrier, run_name,
+                                             alpha)
+
         # After the existing steady-state plot
-        final_states = self.simulate_steady_state(num_simulations, num_steps, alpha)
-        self.plot_simulated_steady_state(final_states, run_name, alpha)
+        # final_states = self.simulate_steady_state(num_simulations, num_steps, alpha)
+        # self.plot_simulated_steady_state(final_states, run_name, alpha)
         with open(os.path.join(self.save_path, f"total_reward_{alpha}.txt"),
                       'a') as f:
                 f.write(f"Total Reward: {sum(total_rewards)}\n")
 
 
         return avg_reward
+
+    def apply_barrier_control(self, infected_value, risk_value, optimal_x, optimal_y, alpha):
+        """
+        Apply barrier control to ensure the system stays within safe bounds using discrete allowed values.
+
+        Args:
+        infected_value (float): Current number of infected individuals.
+        risk_value (float): Current community risk.
+        optimal_x (float): Optimal infection threshold.
+        optimal_y (float): Optimal attendance threshold.
+        alpha (float): Alpha parameter for the policy.
+        num_actions (int): The number of possible actions (discretized allowed values).
+
+        Returns:
+        int: Selected action index based on barrier control.
+        """
+
+        # Scale the infection and attendance thresholds (using reverse scaling logic)
+        # scaled_optimal_y = self.reverse_scale_action(optimal_y, num_actions)
+
+        # If infection exceeds the threshold, reduce the allowed value (choose the lowest action)
+        if infected_value > optimal_x:
+            action = 0  # Corresponds to lowest allowed value (0)
+        else:
+            # If attendance is below threshold, increase the allowed value (choose the highest action)
+            action_index = len(allowed) - 1 if risk_value < optimal_y else 0
+            # action_index = 0 if risk_value < optimal_y else 1
+            action = self.scale_action(action_index, len(allowed))
+
+        return action
+
+    def scale_action(self, action_index, num_actions):
+        """
+        Scale the action index to the corresponding allowed value.
+        E.g., action_index=0 -> 0, action_index=1 -> 50, action_index=2 -> 100
+        """
+        max_value = 100
+        step_size = max_value / (num_actions - 1)
+        return int(action_index * step_size)
+
+    def simulate_states_with_barrier_control(self, infected_values, risk_values, optimal_x, optimal_y, alpha=0.5,
+                                             num_steps=100):
+        """
+        Simulate the system with barrier control applied at each step.
+
+        Args:
+        infected_values (numpy.ndarray): Array of initial infected values from simulate_states().
+        risk_values (numpy.ndarray): Array of community risk values from simulate_states().
+        optimal_x (float): Safe threshold for infections.
+        optimal_y (float): Safe threshold for attendance.
+        alpha (float): The alpha parameter for the policy.
+        num_steps (int): Number of simulation steps.
+
+        Returns:
+        tuple: Lists of allowed values and updated infected values over time.
+        """
+        allowed_values_over_time = []
+        infected_values_over_time = []
+        risk_values_over_time = []
+
+        for step in range(num_steps):
+            # Get the current infected and risk values
+            infected_value = infected_values[step]
+            risk_value = risk_values[step]
+            risk_values_over_time.append(risk_value)
+
+            # Apply barrier control to determine the allowed student population
+            allowed_value = self.apply_barrier_control(infected_value, risk_value, optimal_x,
+                                                                         optimal_y, alpha)
+            allowed_values_over_time.append(allowed_value)
+            print(f"Step {step + 1}: Allowed = {allowed_value}, Infected = {infected_value}, Risk = {risk_value}")
+
+            # Simulate the new infected count based on the control action and dynamics
+            alpha_infection = 0.005
+            beta_infection = 0.01
+
+            # Calculate new infection value based on current infected count and allowed students
+            new_infected = ((alpha_infection * infected_value) * int(allowed_value)) + \
+                           ((beta_infection * risk_value) * allowed_value ** 2)
+
+            # Update infected value for the next step
+            infected_value = min(new_infected, int(allowed_value))
+            infected_values_over_time.append(infected_value)
+
+            print(f"Step {step + 1}: Allowed = {allowed_value}, Infected = {infected_value}, Risk = {risk_value}")
+
+        return allowed_values_over_time, infected_values_over_time, risk_values_over_time
+
+
+
+    def plot_barrier_simulation_results(self, allowed_values_over_time, infected_values_over_time, risk_values_over_time,
+                                run_name, alpha):
+        """
+        Plot the simulation results with allowed values and infected values over time, and community risk as a subplot.
+
+        Args:
+        allowed_values_over_time (list): List of allowed student populations over time.
+        infected_values_over_time (list): List of infected values over time.
+        risk_values_over_time (list): List of community risk values over time.
+        run_name (str): The name of the run for labeling the plot.
+        alpha (float): The alpha parameter for labeling the plot.
+        """
+        time_steps = np.arange(len(allowed_values_over_time))
+
+        # Create figure with 2 subplots, increase figure size
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 12), sharex=True)
+
+        # Increase bar width for better visibility and plot allowed and infected values
+        bar_width = 0.4
+        sns.barplot(x=time_steps, y=allowed_values_over_time, color='blue', label='Allowed Students', ax=ax1, alpha=0.7,
+                    width=bar_width)
+        sns.barplot(x=time_steps, y=infected_values_over_time, color='red', label='Infected Individuals', ax=ax1,
+                    alpha=0.5, width=bar_width)
+
+        # Set labels and legend for the first subplot
+        ax1.set_ylabel('Count')
+        ax1.legend(loc='upper left')
+        ax1.set_title(f'Myopic Barrier Control Simulation Results')
+
+        # Plot community risk as a line plot in the second subplot
+        sns.lineplot(x=time_steps, y=risk_values_over_time, color='green', marker='o', ax=ax2, label='Community Risk')
+        ax2.set_ylabel('Community Risk')
+        ax2.set_xlabel('Time Steps')
+        ax2.legend(loc='upper left')
+
+        # Rotate x-axis labels for visibility
+        plt.xticks(rotation=45)
+
+        # Adjust layout to prevent overlap
+        plt.tight_layout()
+
+        # Save the plot
+        output_path = os.path.join(self.save_path, f'barrier_simulation_results_{run_name}_alpha_{alpha}.png')
+        plt.savefig(output_path)
+        plt.show()
 
 
 def main(seed=42):

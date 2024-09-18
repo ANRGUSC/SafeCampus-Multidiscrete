@@ -925,25 +925,29 @@ class PPOCustomAgent:
         # Ensure we only take the first two elements
         return flattened_feature[:2]
 
-    def construct_lyapunov_function(self, features, alpha):
-        model = LyapunovNet(input_dim=2, hidden_dim=64, output_dim=1)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
+    def construct_lyapunov_function(self, infected_values, community_risk_values, alpha):
+        model = LyapunovNet(input_dim=2, hidden_dim=128, output_dim=1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.00000001)
         loss_values = []
         epochs = 1000
         epsilon = 1e-8
 
-        train_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
+        # Combine infected and community risk values
+        states = torch.tensor(list(zip(infected_values, community_risk_values)), dtype=torch.float32)
 
         for epoch in range(epochs):
             optimizer.zero_grad()
-            V = model(train_states)
-            next_states = self.get_next_states(train_states, alpha)
+            V = model(states)
+
+            # Use the actual next states from the data
+            next_states = states[1:]
             V_next = model(next_states)
+            V = V[:-1]  # Remove the last element to match V_next size
 
             positive_definite_loss = F.relu(-V + epsilon).mean()
             decreasing_loss = F.relu(V_next - V + epsilon).mean()
 
-            zero_states = torch.all(train_states == 0, dim=1)
+            zero_states = torch.all(states == 0, dim=1)
             origin_loss = V[zero_states].mean() if zero_states.any() else torch.tensor(0.0)
 
             loss = positive_definite_loss + decreasing_loss + origin_loss
@@ -953,17 +957,12 @@ class PPOCustomAgent:
                 continue
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=0.5)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
             loss_values.append(loss.item())
 
-        torch.save(model.state_dict(), os.path.join(self.save_path, 'lyapunov_model.pth'))
-        with open(os.path.join(self.save_path, 'lyapunov_loss_values.txt'), 'w') as f:
-            for i, loss_val in enumerate(loss_values):
-                f.write(f"Epoch {i}: Loss = {loss_val}\n")
-
-        return model, None, loss_values  # Return None for theta as it's not used in this implementation
+        return model, loss_values
 
     def evaluate_lyapunov(self, model, features, alpha):
         # Evaluate using the community risk and infected values from the CSV
@@ -1092,13 +1091,13 @@ class PPOCustomAgent:
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
 
-        im1 = ax1.imshow(V_values, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='viridis')
+        im1 = ax1.imshow(V_values, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='plasma')
         ax1.set_title(f'Lyapunov Function V(x) (Run: {run_name}, Alpha: {alpha})')
         ax1.set_xlabel('Infected')
         ax1.set_ylabel('Community Risk')
         fig.colorbar(im1, ax=ax1, label='V(x)')
 
-        im2 = ax2.imshow(delta_V, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='coolwarm')
+        im2 = ax2.imshow(delta_V, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='plasma')
         ax2.set_title(f'Change in Lyapunov Function ΔV(x) (Run: {run_name}, Alpha: {alpha})')
         ax2.set_xlabel('Infected')
         ax2.set_ylabel('Community Risk')

@@ -251,7 +251,7 @@ def main():
     parser = argparse.ArgumentParser(description='Run training, evaluation, or combined training and evaluation.')
     parser.add_argument('mode', choices=['train', 'eval', 'sweep', 'multi', 'optuna', 'train_and_eval'],
                         help='Mode to run the script in.')
-    parser.add_argument('--alpha', type=float, default=0.3, help='Reward parameter alpha.')
+    parser.add_argument('--alpha', type=float, default=0.6, help='Reward parameter alpha.')
     parser.add_argument('--alpha_t', type=float, default=0.05, help='Alpha value for tolerance interval.')
     parser.add_argument('--beta_t', type=float, default=0.9, help='Beta value for tolerance interval.')
     parser.add_argument('--num_runs', type=int, default=10, help='Number of runs for tolerance interval.')

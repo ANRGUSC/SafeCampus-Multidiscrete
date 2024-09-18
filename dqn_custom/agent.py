@@ -69,7 +69,7 @@ class LyapunovNet(nn.Module):
     def forward(self, x):
         out = self.relu(self.fc1(x))
         out = self.relu(self.fc2(out))
-        out = F.softplus(self.fc3(out))  # Ensure positive output
+        out = self.fc3(out)  # Remove softplus to allow for negative values
         return out
 
 
@@ -917,28 +917,92 @@ class DQNCustomAgent:
         # Ensure we only take the first two elements
         return flattened_feature[:2]
 
-    def construct_lyapunov_function(self, features, alpha):
-        model = LyapunovNet(input_dim=2, hidden_dim=64, output_dim=1)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
+    def evaluate_rl_lyapunov_stability(self, lyapunov_model, states, q_values):
+        states_tensor = torch.tensor(states, dtype=torch.float32)
+        q_values_tensor = torch.tensor(q_values, dtype=torch.float32)
+
+        with torch.no_grad():
+            V = lyapunov_model(states_tensor).squeeze()
+
+            positive_definite = (V >= 0).float().mean()
+            decreasing = (V[1:] <= V[:-1]).float().mean()
+            q_alignment = F.mse_loss(V, q_values_tensor)
+
+        return positive_definite.item(), decreasing.item(), q_alignment.item()
+
+    def simulate_states(self, num_simulations=100, num_steps=100, alpha=0.5):
+        """
+        Simulate the system for a long time to estimate the steady-state distribution.
+
+        Args:
+        num_simulations (int): Number of independent simulations to run.
+        num_steps (int): Number of steps for each simulation.
+        alpha (float): The alpha parameter for the policy.
+
+        Returns:
+        numpy.ndarray: Array of all infected and risk states from all simulations at every step.
+        """
+        # Initialize lists to store infected and risk values at each step
+        infected_values = []
+        community_risk_values = []
+
+        for _ in range(num_simulations):
+            infected = np.random.uniform(0, 100)  # Initial infected count
+            risk = np.random.uniform(0, 1)  # Initial community risk
+
+            for _ in range(num_steps):
+                # Store the infected and risk values at each step
+                infected_values.append(infected)
+                community_risk_values.append(risk)
+
+                state = torch.tensor([infected, risk], dtype=torch.float32)
+
+                with torch.no_grad():
+                    q_values = self.model(state.unsqueeze(0))
+                    action_index = q_values.argmax().item()
+                    allowed_value = self.scale_action(action_index, self.output_dim)
+
+                alpha_infection = 0.005
+                beta_infection = 0.01
+
+                new_infected = ((alpha_infection * infected) * allowed_value) + \
+                               ((beta_infection * risk) * allowed_value ** 2)
+
+                infected = min(new_infected, allowed_value)
+                risk = np.random.uniform(0, 1)  # Assuming risk is randomly distributed each step
+
+        # Convert the lists to numpy arrays
+        infected_values_array = np.array(infected_values)
+        community_risk_values_array = np.array(community_risk_values)
+
+        return infected_values_array, community_risk_values_array
+
+    def construct_lyapunov_function(self, infected_values, community_risk_values, alpha):
+        model = LyapunovNet(input_dim=2, hidden_dim=16, output_dim=1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.000009)
         loss_values = []
         epochs = 1000
         epsilon = 1e-8
 
-        train_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
+        # Combine the infected values and community risk values to form the state tensor
+        states = np.column_stack((infected_values[:-1], community_risk_values[:-1]))  # Current states
+        next_states = np.column_stack((infected_values[1:], community_risk_values[1:]))  # Next states (shifted)
+
+        states_tensor = torch.tensor(states, dtype=torch.float32)
+        next_states_tensor = torch.tensor(next_states, dtype=torch.float32)
 
         for epoch in range(epochs):
             optimizer.zero_grad()
-            V = model(train_states)
-            next_states = self.get_next_states(train_states, alpha)
-            V_next = model(next_states)
+            V = model(states_tensor)
 
-            positive_definite_loss = F.relu(-V + epsilon).mean()
-            decreasing_loss = F.relu(V_next - V + epsilon).mean()
+            # Use the actual next states observed over time
+            V_next = model(next_states_tensor)
 
-            zero_states = torch.all(train_states == 0, dim=1)
-            origin_loss = V[zero_states].mean() if zero_states.any() else torch.tensor(0.0)
+            # Lyapunov stability conditions
+            positive_definite_loss = F.relu(-V + epsilon).mean()  # Ensure Lyapunov is non-negative
+            decreasing_loss = F.relu(V_next - V + epsilon).mean()  # Ensure Lyapunov decreases over time
 
-            loss = positive_definite_loss + decreasing_loss + origin_loss
+            loss = positive_definite_loss + decreasing_loss
 
             if torch.isnan(loss) or torch.isinf(loss):
                 print(f"Warning: NaN or Inf detected at epoch {epoch}")
@@ -950,12 +1014,7 @@ class DQNCustomAgent:
 
             loss_values.append(loss.item())
 
-        torch.save(model.state_dict(), os.path.join(self.save_path, 'lyapunov_model.pth'))
-        with open(os.path.join(self.save_path, 'lyapunov_loss_values.txt'), 'w') as f:
-            for i, loss_val in enumerate(loss_values):
-                f.write(f"Epoch {i}: Loss = {loss_val}\n")
-
-        return model, None, loss_values  # Return None for theta as it's not used in this implementation
+        return model, loss_values
 
     def evaluate_lyapunov(self, model, features, alpha):
         # Evaluate using the community risk and infected values from the CSV
@@ -1014,6 +1073,30 @@ class DQNCustomAgent:
 
         return positive_definite > 0.99 and decreasing > 0.99
 
+    def update_community_risk(self, current_risk, time_step):
+        """
+        Update the community risk based on a pattern similar to the training environment.
+        """
+        # t = (time_step / self.max_weeks) * 2 * np.pi
+        # num_components = 2  # Fixed number of components for consistency
+        #
+        # risk_pattern = 0
+        # for _ in range(num_components):
+        #     amplitude = random.uniform(0.2, 0.4)
+        #     frequency = random.uniform(0.5, 2.0)
+        #     phase = random.uniform(0, 2 * np.pi)
+        #     risk_pattern += amplitude * np.sin(frequency * t + phase)
+        #
+        # # Scale the risk_pattern to [0, 1] range
+        # risk_pattern = (risk_pattern - -0.8) / (0.8 - -0.8)  # Assuming max amplitude is 0.4 * 2
+        # risk_pattern = 0.9 * risk_pattern + 0.05  # Scale to range [0.05, 0.95]
+        #
+        # # Add some randomness
+        # new_risk = max(0.0, min(1.0, risk_pattern + random.uniform(-0.1, 0.1)))
+        new_risk = random.uniform(0.0, 1.0)
+
+        return new_risk
+
     def get_next_states(self, states, alpha):
         next_states = []
         for state in states:
@@ -1036,87 +1119,146 @@ class DQNCustomAgent:
 
         return torch.stack(next_states)
 
-    def plot_steady_state_and_stable_points(self, V, features, run_name, alpha):
-        infected = np.linspace(0, 100, 100)
-        risk = np.linspace(0, 1, 100)
-        X, Y = np.meshgrid(infected, risk)
-        states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
+    def plot_steady_state_and_stable_points(self, lyapunov_model, run_name, alpha, infected_values,
+                                            community_risk_values,
+                                            num_simulations=1000, num_steps=100):
+        # Ensure that the infected and risk values are of the same length
+        assert len(infected_values) == len(
+            community_risk_values), "Infected values and risk values must have the same length."
 
+        # Convert infected and risk values to numpy arrays for easy manipulation
+        infected = np.array(infected_values)
+        risk = np.array(community_risk_values)
+
+        # Create a grid using the infected and risk values from the simulation data
+        X, Y = np.meshgrid(np.linspace(min(infected), max(infected), 100),  # Create a uniform grid for plotting
+                           np.linspace(min(risk), max(risk), 100))
+
+        # Combine the grid for calculating the Lyapunov function values
+        grid_states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
+
+        # Calculate Lyapunov function values for the grid
         with torch.no_grad():
-            V_values = V(states).squeeze().cpu().numpy().reshape(X.shape)
+            V_values = lyapunov_model(grid_states).squeeze().cpu().numpy().reshape(X.shape)
 
-        steady_state = np.exp(-V_values / V_values.max())
-        steady_state /= steady_state.sum()
+        # Calculate Lyapunov function change (ΔV)
+        next_states = self.get_next_states(grid_states, alpha)
+        with torch.no_grad():
+            V_next_values = lyapunov_model(next_states).squeeze().cpu().numpy().reshape(X.shape)
 
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+        # Ensure that delta_V is calculated as the difference between consecutive states' Lyapunov values
+        delta_V = V_next_values - V_values
+        print(f"Delta V: {delta_V.min()}, {delta_V.max()}")
+        print("Delta V values:", delta_V)
 
-        c1 = ax1.contourf(X, Y, steady_state, levels=20, cmap='viridis')
-        ax1.set_title(f'Steady-State Distribution (Run: {run_name}, Alpha: {alpha})')
+        # Calculate metrics
+        positive_definite_percentage = np.mean(V_values > 0) * 100  # Proportion of positive definite values
+        mean_lyapunov_value = np.mean(V_values)  # Mean Lyapunov value
+        mean_delta_V = np.mean(delta_V)  # Average rate of change (Delta V)
+        time_to_equilibrium = np.argmax(np.abs(delta_V) < 1e-3) if np.any(np.abs(delta_V) < 1e-3) else len(
+            delta_V)  # Time to equilibrium
+        stable_region_percentage = np.mean(np.abs(V_values) < 1e-3) * 100  # Percentage of time in stable region
+        variance_lyapunov = np.var(V_values)  # Variance of Lyapunov values
+
+        # Simulate steady-state distribution using infected_values and community_risk_values
+        steady_state_samples = list(zip(infected_values, community_risk_values))
+        hist, xedges, yedges = np.histogram2d(
+            [s[0] for s in steady_state_samples],
+            [s[1] for s in steady_state_samples],
+            bins=[100, 100], range=[[min(infected_values), max(infected_values)],
+                                    [min(community_risk_values), max(community_risk_values)]]
+        )
+        hist = hist / hist.sum()  # Normalize to get the probability distribution
+
+        # Create the plot
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(30, 8))
+
+        # Plot 1: Steady-State Distribution using simulated infected and risk values
+        c1 = ax1.imshow(hist.T, extent=[min(infected_values), max(infected_values), min(community_risk_values),
+                                        max(community_risk_values)], origin='lower', aspect='auto', cmap='gray_r')
+        ax1.set_title(f'Simulated Steady-State Distribution (Run: {run_name}, Alpha: {alpha})')
         ax1.set_xlabel('Infected')
         ax1.set_ylabel('Community Risk')
-        fig.colorbar(c1, ax=ax1, label='Steady-State Probability')
+        fig.colorbar(c1, ax=ax1, label='Probability')
 
-        c2 = ax2.contourf(X, Y, V_values, levels=20, cmap='coolwarm')
+        # Plot 2: Lyapunov Function
+        c2 = ax2.contourf(X, Y, V_values, levels=20, cmap='gray')
         ax2.set_title(f'Lyapunov Function (Run: {run_name}, Alpha: {alpha})')
         ax2.set_xlabel('Infected')
         ax2.set_ylabel('Community Risk')
-        fig.colorbar(c2, ax=ax2, label='Lyapunov Function Value')
+        fig.colorbar(c2, ax=ax2, label='Lyapunov Value')
 
+        # Plot 3: Lyapunov Function Change (ΔV)
+        c3 = ax3.contourf(X, Y, delta_V, levels=20, cmap='gray', center=0)
+        ax3.set_title(f'Lyapunov Function Change (Run: {run_name}, Alpha: {alpha})')
+        ax3.set_xlabel('Infected')
+        ax3.set_ylabel('Community Risk')
+        fig.colorbar(c3, ax=ax3, label='Lyapunov Value Change')
+
+        # Adjust layout and save plot
         plt.tight_layout()
         plt.savefig(os.path.join(self.save_path, f'steady_state_and_stable_points_{run_name}_alpha_{alpha}.png'))
         plt.close()
 
-    def plot_lyapunov_change(self, V, features, run_name, alpha):
-        infected = np.linspace(0, 100, 50)
-        risk = np.linspace(0, 1, 50)
-        X, Y = np.meshgrid(infected, risk)
-        states = torch.tensor(np.column_stack((X.ravel(), Y.ravel())), dtype=torch.float32)
+        # Save the metrics to a CSV file
+        metrics_file_path = os.path.join(self.save_path, f'lyapunov_metrics_{run_name}_alpha_{alpha}.csv')
+        with open(metrics_file_path, mode='w', newline='') as metrics_file:
+            writer = csv.writer(metrics_file)
+            # Write headers
+            writer.writerow([
+                'Run Name', 'Alpha', 'Mean Lyapunov Value', 'Proportion Positive Definite (%)',
+                'Average Rate of Change (Delta V)', 'Time to Equilibrium (steps)',
+                'Percentage in Stable Region (%)', 'Variance of Lyapunov Values'
+            ])
+            # Write the metrics
+            writer.writerow([
+                run_name, alpha, mean_lyapunov_value, positive_definite_percentage, mean_delta_V,
+                time_to_equilibrium, stable_region_percentage, variance_lyapunov
+            ])
+
+        print(f"Metrics saved to {metrics_file_path}")
+
+    def evaluate_lyapunov_stability(self, lyapunov_model, states, alpha):
+        states_tensor = torch.tensor(states, dtype=torch.float32)
 
         with torch.no_grad():
-            V_values = V(states).squeeze().cpu().numpy().reshape(X.shape)
-            next_states = self.get_next_states(states, alpha)
-            V_next_values = V(next_states).squeeze().cpu().numpy().reshape(X.shape)
-            delta_V = V_next_values - V_values
+            V = lyapunov_model(states_tensor).squeeze()
+            next_states = self.get_next_states(states_tensor, alpha)
+            V_next = lyapunov_model(next_states).squeeze()
 
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+            # Check positive definiteness
+            positive_definite = (V > 0).float().mean()
 
-        im1 = ax1.imshow(V_values, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='viridis')
-        ax1.set_title(f'Lyapunov Function V(x) (Run: {run_name}, Alpha: {alpha})')
-        ax1.set_xlabel('Infected')
-        ax1.set_ylabel('Community Risk')
-        fig.colorbar(im1, ax=ax1, label='V(x)')
+            # Check if V is decreasing
+            decreasing = (V_next < V).float().mean()
 
-        im2 = ax2.imshow(delta_V, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='coolwarm')
-        ax2.set_title(f'Change in Lyapunov Function ΔV(x) (Run: {run_name}, Alpha: {alpha})')
-        ax2.set_xlabel('Infected')
-        ax2.set_ylabel('Community Risk')
-        fig.colorbar(im2, ax=ax2, label='ΔV(x)')
+        return positive_definite.item(), decreasing.item()
 
-        plt.tight_layout()
-        plt.savefig(os.path.join(self.save_path, f'lyapunov_change_{run_name}_alpha_{alpha}.png'))
-        plt.close()
+    def plot_lyapunov_properties(self, V, infected_values, community_risk_values, run_name, alpha):
+        # Convert infected and community risk values into tensors
+        infected_tensor = torch.tensor(infected_values, dtype=torch.float32)
+        risk_tensor = torch.tensor(community_risk_values, dtype=torch.float32)
 
-    def plot_lyapunov_properties(self, V, features, run_name, alpha):
-        eval_states = torch.tensor([[f[0], f[1]] for f in features], dtype=torch.float32)
+        # Stack them together to form the state representation
+        states_tensor = torch.stack([infected_tensor, risk_tensor], dim=1)
 
+        # Compute V(x) values and their differences (ΔV)
         with torch.no_grad():
-            V_values = V(eval_states).squeeze()
-            next_states = self.get_next_states(eval_states, alpha)
-            V_next = V(next_states).squeeze()
-            delta_V = V_next - V_values
+            V_values = V(states_tensor).squeeze()  # Compute Lyapunov values for the states
+            delta_V = V_values[1:] - V_values[:-1]  # Compute differences between consecutive values
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 8))
 
-        # Plot V(x)
+        # Plot V(x) for each state index
         ax1.plot(V_values.cpu().numpy(), label='V(x)')
         ax1.axhline(y=0, color='r', linestyle='--', label='V(x) = 0')
-        ax1.set_title(f'Lyapunov Function Values (Run: {run_name}, Alpha: {alpha})')
+        ax1.set_title(f'Lyapunov Function (Run: {run_name}, Alpha: {alpha})')
         ax1.set_xlabel('State Index')
         ax1.set_ylabel('V(x)')
         ax1.legend()
         ax1.grid(True)
 
-        # Plot ΔV(x)
+        # Plot ΔV(x) for each state index
         ax2.plot(delta_V.cpu().numpy(), label='ΔV(x)')
         ax2.axhline(y=0, color='r', linestyle='--', label='ΔV(x) = 0')
         ax2.set_title(f'Change in Lyapunov Function (Run: {run_name}, Alpha: {alpha})')
@@ -1125,27 +1267,22 @@ class DQNCustomAgent:
         ax2.legend()
         ax2.grid(True)
 
-        # Plot V(x) vs ΔV(x)
-        ax3.scatter(V_values.cpu().numpy(), delta_V.cpu().numpy(), alpha=0.6)
-        ax3.axhline(y=0, color='r', linestyle='--', label='ΔV(x) = 0')
-        ax3.axvline(x=0, color='g', linestyle='--', label='V(x) = 0')
-        ax3.set_title(f'V(x) vs ΔV(x) (Run: {run_name}, Alpha: {alpha})')
-        ax3.set_xlabel('V(x)')
-        ax3.set_ylabel('ΔV(x)')
-        ax3.legend()
+        # Plot V(x) values as a scatter plot where the color represents the V(x) values
+        scatter = ax3.scatter(infected_tensor.cpu().numpy(), risk_tensor.cpu().numpy(),
+                              c=V_values.cpu().numpy(), cmap='gray', alpha=0.6)
+        ax3.set_title(f'Lyapunov Function (V(x)) vs Infected and Community Risk (Run: {run_name}, Alpha: {alpha})')
+        ax3.set_xlabel('Infected')
+        ax3.set_ylabel('Community Risk')
+        fig.colorbar(scatter, ax=ax3, label='V(x)')
         ax3.grid(True)
 
+        # Adjust layout and save plot
         plt.tight_layout()
         plt.savefig(os.path.join(self.save_path, f'lyapunov_properties_{run_name}_alpha_{alpha}.png'))
         plt.close()
 
-        positive_definite = (V_values > 0).float().mean()
-        decreasing = (delta_V < 0).float().mean()
+        return V_values.mean().item(), delta_V.mean().item()
 
-        print(f"Positive definite: {positive_definite.item():.2%}")
-        print(f"Decreasing: {decreasing.item():.2%}")
-
-        return positive_definite.item(), decreasing.item()
     def plot_equilibrium_points(self, features, run_name, alpha):
         infected = [f[0] for f in features]
         risk = [f[1] for f in features]
@@ -1181,13 +1318,13 @@ class DQNCustomAgent:
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
 
-        im1 = ax1.imshow(V_values, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='viridis')
+        im1 = ax1.imshow(V_values, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='plasma')
         ax1.set_title(f'Lyapunov Function V(x) (Run: {run_name}, Alpha: {alpha})')
         ax1.set_xlabel('Infected')
         ax1.set_ylabel('Community Risk')
         fig.colorbar(im1, ax=ax1, label='V(x)')
 
-        im2 = ax2.imshow(delta_V, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='coolwarm')
+        im2 = ax2.imshow(delta_V, extent=[0, 100, 0, 1], origin='lower', aspect='auto', cmap='plasma')
         ax2.set_title(f'Change in Lyapunov Function ΔV(x) (Run: {run_name}, Alpha: {alpha})')
         ax2.set_xlabel('Infected')
         ax2.set_ylabel('Community Risk')
@@ -1484,7 +1621,7 @@ class DQNCustomAgent:
 
         return optimal_x, optimal_y
 
-    def simulate_steady_state(self, num_simulations=10000, num_steps=100, alpha=0.5):
+    def simulate_steady_state(self, num_simulations=100, num_steps=100, alpha=0.5):
         """
         Simulate the system for a long time to estimate the steady-state distribution.
 
@@ -1520,6 +1657,7 @@ class DQNCustomAgent:
                 risk = np.random.uniform(0, 1)  # Assuming risk is randomly distributed each step
 
             final_states.append([infected, risk])
+        print(final_states)
 
         return np.array(final_states)
 
@@ -1587,6 +1725,7 @@ class DQNCustomAgent:
             writer.writerow(['Episode', 'Step', 'State', 'Action', 'Community Risk', 'Total Reward'])
 
             states = []
+            q_values = []
             next_states = []
             community_risks = []
 
@@ -1602,14 +1741,15 @@ class DQNCustomAgent:
                 while not done:
                     with torch.no_grad():
                         state_tensor = torch.FloatTensor(state).unsqueeze(0)
-                        q_values = self.model(state_tensor)
-                        action_index = q_values.argmax(dim=1).item()
+                        q_values_current = self.model(state_tensor)
+                        action_index = q_values_current.argmax(dim=1).item()
                         scaled_action = self.scale_action(action_index, self.output_dim)
 
                     next_state, reward, done, _, info = self.env.step(([scaled_action], alpha))
                     next_state = np.array(next_state, dtype=np.float32)
                     total_reward += reward
                     states.append(state)
+                    q_values.append(q_values_current.max().item())
                     next_states.append(next_state)
                     community_risks.append(info['community_risk'])
 
@@ -1647,16 +1787,33 @@ class DQNCustomAgent:
                         100 - z)  # At least 95% of time within safe infection range
                 attendance_condition_met = attendance_safety_percentage >= z  # At least 95% of time with sufficient attendance
 
-                # Construct the Lyapunov function
-                features = list(zip(allowed_values_over_time, infected_values_over_time, community_risks))
-                V, theta, loss_values = self.construct_lyapunov_function(features, alpha)
+                # Construct Lyapunov function
+                # Assuming this is inside your `evaluate` function
+                infected_values, risk_values = self.simulate_states()
+                lyapunov_model, loss_values = self.construct_lyapunov_function(infected_values, risk_values,alpha)
 
-
+                # Plot Lyapunov function loss
                 self.plot_loss_function(loss_values, alpha, run_name)
-                self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
-                self.plot_lyapunov_change(V, features, run_name, alpha)
-                self.plot_equilibrium_points(features, run_name, alpha)
-                self.plot_lyapunov_properties(V, features, run_name, alpha)
+
+                # Plot steady-state distribution and stable points
+                self.plot_steady_state_and_stable_points(lyapunov_model, run_name, alpha, infected_values, risk_values)
+
+                # Plot Lyapunov properties
+                mean_v, mean_delta_v = self.plot_lyapunov_properties(lyapunov_model, infected_values, risk_values,
+                                                                     run_name, alpha)
+
+                print(f"Mean Lyapunov Value: {mean_v}")
+                print(f"Mean Change in Lyapunov Value: {mean_delta_v}")
+
+                # Evaluate Lyapunov stability
+                positive_definite, decreasing = self.evaluate_lyapunov_stability(lyapunov_model, states, alpha)
+
+                print(f"Lyapunov Positive Definite: {positive_definite:.2%}")
+                print(f"Lyapunov Decreasing: {decreasing:.2%}")
+                # self.plot_steady_state_and_stable_points(V, features, run_name, alpha)
+                # self.plot_lyapunov_change(V, features, run_name, alpha)
+                # self.plot_equilibrium_points(features, run_name, alpha)
+                # self.plot_lyapunov_properties(V, features, run_name, alpha)
                 # Calculate the stationary distribution and unique states
                 unique_states, stationary_distribution = self.calculate_stationary_distribution(states, next_states)
 
@@ -1665,26 +1822,18 @@ class DQNCustomAgent:
                                                                           run_name)
 
                 # After all episodes have been evaluated and the CSV file has been saved, call the transition matrix plotting function
-                self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name,
-                                                       evaluation_subdirectory)
-                # Call find_optimal_xy to determine the best x and y and plot the safety conditions
+                # self.plot_transition_matrix_using_risk(states, next_states, community_risks, run_name,
+                #                                        evaluation_subdirectory)
+                # # Call find_optimal_xy to determine the best x and y and plot the safety conditions
                 optimal_x, optimal_y = self.find_optimal_xy(infected_values_over_time, allowed_values_over_time,
                                                             self.community_risk_values, z, run_name,
                                                             evaluation_subdirectory, alpha)
 
-                # Construct CBFs using direct x and y values
-                B1, B2 = self.construct_cbf(allowed_values_over_time, infected_values_over_time,
-                                            evaluation_subdirectory,
-                                            optimal_x, optimal_y)
 
-                # Verify forward invariance
-                is_invariant = self.verify_forward_invariance(B1, B2, allowed_values_over_time,
-                                                              infected_values_over_time, evaluation_subdirectory)
+                # final_states = self.simulate_steady_state(alpha=alpha)
+                # self.plot_simulated_steady_state(final_states, run_name, alpha)
 
-                final_states = self.simulate_steady_state(alpha=alpha)
-                self.plot_simulated_steady_state(final_states, run_name, alpha)
-
-                print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
+                # print(f"Optimal x: {optimal_x}, Optimal y: {optimal_y}")
 
             # Save final results
             with open(os.path.join(evaluation_subdirectory, 'final_results.txt'), 'w') as f:
@@ -1694,7 +1843,7 @@ class DQNCustomAgent:
                     f"Safety Percentage for Infections > {x_value}: {100 - infection_safety_percentage:.2f}% -> {'Condition Met' if infection_condition_met else 'Condition Not Met'}\n")
                 f.write(
                     f"Safety Percentage for Attendance ≥ {y_value}: {attendance_safety_percentage:.2f}% -> {'Condition Met' if attendance_condition_met else 'Condition Not Met'}\n")
-                f.write(f"Forward Invariance Verified: {'Yes' if is_invariant else 'No'}\n")
+
 
             min_length = min(len(allowed_values_over_time), len(infected_values_over_time),
                              len(self.community_risk_values))
